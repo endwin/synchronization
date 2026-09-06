@@ -395,7 +395,8 @@ input:focus, select:focus {
   font-size: 12px;
 }
 
-.delete-remote-box {
+.delete-remote-box,
+.delete-local-box {
   grid-column: 1 / -1;
   margin-top: 4px;
   padding: 6px 10px;
@@ -403,7 +404,8 @@ input:focus, select:focus {
   border: 1px dashed #fde68a;
   border-radius: 4px;
 }
-.delete-remote-box label {
+.delete-remote-box label,
+.delete-local-box label {
   color: #b45309;
   font-size: 12px;
 }

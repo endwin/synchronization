@@ -1,17 +1,20 @@
 import { ScannedFile } from './file-scanner';
 import { RemoteFileStat } from './webdav-client';
+import { SyncedItemRecord } from './sync-state';
 
-export type SyncAction = 'upload' | 'skip' | 'delete';
+export type SyncAction = 'upload' | 'skip' | 'delete' | 'delete_local';
 export interface SyncItem {
   relativePath: string;
   action: SyncAction;
-  reason: 'new' | 'modified_size' | 'modified_mtime' | 'identical' | 'deleted_on_local';
+  reason: 'new' | 'modified_size' | 'modified_mtime' | 'identical' | 'deleted_on_local' | 'deleted_on_remote';
   localSize: number;
   localMtime: number;
 }
 
 export interface SyncPlanOptions {
   deleteOnRemote?: boolean;
+  deleteOnLocal?: boolean;
+  lastState?: Map<string, SyncedItemRecord>;
 }
 
 export function calculateSyncPlan(
@@ -25,13 +28,26 @@ export function calculateSyncPlan(
     const remote = remoteFiles.get(relPath);
 
     if (!remote) {
-      plan.push({
-        relativePath: relPath,
-        action: 'upload',
-        reason: 'new',
-        localSize: local.size,
-        localMtime: local.mtime
-      });
+      // If deleteOnLocal is true and the file was previously recorded in lastState,
+      // then it was deleted in the backup folder (remote NAS)!
+      if (options?.deleteOnLocal && options?.lastState && options.lastState.has(relPath)) {
+        plan.push({
+          relativePath: relPath,
+          action: 'delete_local',
+          reason: 'deleted_on_remote',
+          localSize: local.size,
+          localMtime: local.mtime
+        });
+      } else {
+        // Otherwise, it is a newly added local file to upload
+        plan.push({
+          relativePath: relPath,
+          action: 'upload',
+          reason: 'new',
+          localSize: local.size,
+          localMtime: local.mtime
+        });
+      }
     } else if (local.size !== remote.size) {
       plan.push({
         relativePath: relPath,

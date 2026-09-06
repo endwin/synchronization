@@ -7,6 +7,7 @@ export interface SyncFolderPair {
   localPath: string;
   remotePath: string;
   deleteOnRemote: boolean;
+  deleteOnLocal: boolean;
   enabled: boolean;
 }
 
@@ -134,7 +135,11 @@ export class ConfigStore {
 
         let folders: SyncFolderPair[] = [];
         if (Array.isArray(parsed.sync?.folders)) {
-          folders = parsed.sync.folders;
+          folders = parsed.sync.folders.map(f => ({
+            ...f,
+            deleteOnRemote: Boolean(f.deleteOnRemote),
+            deleteOnLocal: Boolean(f.deleteOnLocal)
+          }));
         } else if (parsed.sync?.localPath) {
           // Migrate legacy single folder
           folders = [{
@@ -142,6 +147,7 @@ export class ConfigStore {
             localPath: parsed.sync.localPath,
             remotePath: parsed.nas?.remotePath || '/home/Backup',
             deleteOnRemote: false,
+            deleteOnLocal: false,
             enabled: true
           }];
         }
@@ -198,6 +204,7 @@ export class ConfigStore {
         localPath: newConfig.sync.localPath,
         remotePath: newConfig.nas?.remotePath || existing.sync.folders[0]?.remotePath || '/home/Backup',
         deleteOnRemote: existing.sync.folders[0]?.deleteOnRemote ?? false,
+        deleteOnLocal: existing.sync.folders[0]?.deleteOnLocal ?? false,
         enabled: true
       }];
     }

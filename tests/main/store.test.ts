@@ -27,13 +27,13 @@ describe('ConfigStore', () => {
     expect(config.sync.folders.length).toBe(0);
   });
 
-  it('should persist and manage multiple sync folders with deleteOnRemote flag', () => {
+  it('should persist and manage multiple sync folders with deleteOnRemote and deleteOnLocal flags', () => {
     const store = new ConfigStore(tempConfigFile);
     store.save({
       sync: {
         folders: [
-          { id: '1', localPath: 'C:/Folder1', remotePath: '/home/F1', deleteOnRemote: true, enabled: true },
-          { id: '2', localPath: 'C:/Folder2', remotePath: '/home/F2', deleteOnRemote: false, enabled: true }
+          { id: '1', localPath: 'C:/Folder1', remotePath: '/home/F1', deleteOnRemote: true, deleteOnLocal: true, enabled: true },
+          { id: '2', localPath: 'C:/Folder2', remotePath: '/home/F2', deleteOnRemote: false, deleteOnLocal: false, enabled: true }
         ],
         intervalMinutes: 60,
         realtimeSync: true
@@ -43,7 +43,9 @@ describe('ConfigStore', () => {
     const loaded = new ConfigStore(tempConfigFile).get();
     expect(loaded.sync.folders.length).toBe(2);
     expect(loaded.sync.folders[0].deleteOnRemote).toBe(true);
+    expect(loaded.sync.folders[0].deleteOnLocal).toBe(true);
     expect(loaded.sync.folders[1].deleteOnRemote).toBe(false);
+    expect(loaded.sync.folders[1].deleteOnLocal).toBe(false);
   });
 
   it('should migrate legacy single folder config to folders array', () => {

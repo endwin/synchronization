@@ -11,12 +11,31 @@ import { calculateSyncPlan } from '../sync/sync-engine';
 import { SyncScheduler } from '../sync/scheduler';
 import { RealtimeFileWatcher } from '../sync/file-watcher';
 
+import { SyncStateManager } from '../sync/sync-state';
+
 // Ensure Windows command prompt uses UTF-8 (code page 65001) for Korean characters
 if (process.platform === 'win32') {
   try {
     child_process.execSync('chcp 65001', { stdio: 'ignore' });
   } catch {}
   process.env.LANG = 'ko_KR.UTF-8';
+}
+
+function pruneEmptyLocalDirs(currentDir: string, rootDir: string): void {
+  const normCurrent = path.resolve(currentDir);
+  const normRoot = path.resolve(rootDir);
+
+  if (!normCurrent.startsWith(normRoot) || normCurrent === normRoot) {
+    return;
+  }
+
+  try {
+    const entries = fs.readdirSync(normCurrent);
+    if (entries.length === 0) {
+      fs.rmdirSync(normCurrent);
+      pruneEmptyLocalDirs(path.dirname(normCurrent), normRoot);
+    }
+  } catch {}
 }
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -32,6 +51,8 @@ if (!gotTheLock) {
   const store = new ConfigStore(configPath);
   const logsDir = path.join(app.getPath('userData'), 'logs');
   const dailyLogger = new DailyLogger(logsDir);
+  const statePath = path.join(app.getPath('userData'), 'sync-state.json');
+  const syncStateManager = new SyncStateManager(statePath);
 
   function sendLog(msg: string) {
     const now = new Date();
@@ -67,11 +88,12 @@ if (!gotTheLock) {
 
       const client = new SynologyWebDAVClient(config.nas);
       let grandTotalUploaded = 0;
-      let grandTotalDeleted = 0;
+      let grandTotalDeletedRemote = 0;
+      let grandTotalDeletedLocal = 0;
       let grandTotalSkipped = 0;
 
       for (const folder of folders) {
-        sendLog(`📂 [${folder.localPath} ➔ ${folder.remotePath}] 검사 시작 (삭제 동기화: ${folder.deleteOnRemote ? 'ON' : 'OFF'})`);
+        sendLog(`📂 [${folder.localPath} ➔ ${folder.remotePath}] 검사 시작 (NAS삭제: ${folder.deleteOnRemote ? 'ON' : 'OFF'}, 로컬삭제: ${folder.deleteOnLocal ? 'ON' : 'OFF'})`);
 
         if (!fs.existsSync(folder.localPath)) {
           sendLog(`⚠️ 로컬 폴더가 존재하지 않아 건너뜁니다: ${folder.localPath}`);
@@ -81,16 +103,23 @@ if (!gotTheLock) {
         const localFiles = await scanLocalDirectory(folder.localPath);
         await client.ensureDir(folder.remotePath);
         const remoteFiles = await client.listRemoteFiles(folder.remotePath);
+        const lastState = syncStateManager.getFolderState(folder.id);
 
-        const plan = calculateSyncPlan(localFiles, remoteFiles, { deleteOnRemote: folder.deleteOnRemote });
+        const plan = calculateSyncPlan(localFiles, remoteFiles, {
+          deleteOnRemote: folder.deleteOnRemote,
+          deleteOnLocal: folder.deleteOnLocal,
+          lastState
+        });
+
         const uploadList = plan.filter(item => item.action === 'upload');
-        const deleteList = plan.filter(item => item.action === 'delete');
+        const deleteRemoteList = plan.filter(item => item.action === 'delete');
+        const deleteLocalList = plan.filter(item => item.action === 'delete_local');
         const skippedList = plan.filter(item => item.action === 'skip');
 
         grandTotalSkipped += skippedList.length;
-        sendLog(`📊 [${path.basename(folder.localPath)}] 업로드 ${uploadList.length}개, 삭제 ${deleteList.length}개, 스킵 ${skippedList.length}개`);
+        sendLog(`📊 [${path.basename(folder.localPath)}] 업로드 ${uploadList.length}개, NAS삭제 ${deleteRemoteList.length}개, 로컬삭제 ${deleteLocalList.length}개, 스킵 ${skippedList.length}개`);
 
-        const totalOps = uploadList.length + deleteList.length;
+        const totalOps = uploadList.length + deleteRemoteList.length + deleteLocalList.length;
         let completedOps = 0;
 
         // 1. Upload new / modified files
@@ -116,31 +145,65 @@ if (!gotTheLock) {
         }
 
         // 2. Delete remote files if mirror deletion enabled
-        for (const item of deleteList) {
+        for (const item of deleteRemoteList) {
           const fullRemotePath = `${folder.remotePath}/${item.relativePath}`.replace(/\/+/g, '/');
           sendLog(`🗑️ 원격 삭제 [로컬에서 삭제됨]: ${item.relativePath}`);
-          await client.deleteFile(fullRemotePath);
+          try {
+            await client.deleteFile(fullRemotePath);
+          } catch (delErr: any) {
+            sendLog(`⚠️ 원격 삭제 실패: ${item.relativePath} (${delErr.message || delErr})`);
+          }
           completedOps++;
-          grandTotalDeleted++;
+          grandTotalDeletedRemote++;
 
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('sync-progress', {
               percent: Math.round((completedOps / (totalOps || 1)) * 100),
-              currentFile: `[삭제] ${item.relativePath}`,
+              currentFile: `[원격 삭제] ${item.relativePath}`,
               completed: completedOps,
               total: totalOps
             });
           }
         }
+
+        // 3. Delete local files if deleted in backup folder (deleteOnLocal)
+        for (const item of deleteLocalList) {
+          const fullLocalPath = path.join(folder.localPath, item.relativePath);
+          sendLog(`🗑️ 로컬 삭제 [백업폴더에서 삭제됨]: ${item.relativePath}`);
+          try {
+            if (fs.existsSync(fullLocalPath)) {
+              fs.unlinkSync(fullLocalPath);
+              pruneEmptyLocalDirs(path.dirname(fullLocalPath), folder.localPath);
+            }
+          } catch (delErr: any) {
+            sendLog(`⚠️ 로컬 삭제 실패: ${item.relativePath} (${delErr.message || delErr})`);
+          }
+          completedOps++;
+          grandTotalDeletedLocal++;
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('sync-progress', {
+              percent: Math.round((completedOps / (totalOps || 1)) * 100),
+              currentFile: `[로컬 삭제] ${item.relativePath}`,
+              completed: completedOps,
+              total: totalOps
+            });
+          }
+        }
+
+        // 4. Update sync state after operations
+        const updatedLocalFiles = await scanLocalDirectory(folder.localPath);
+        syncStateManager.updateFolderState(folder.id, updatedLocalFiles);
       }
 
-      sendLog(`✓ 전체 동기화 완료: ${grandTotalUploaded}개 업로드, ${grandTotalDeleted}개 삭제, ${grandTotalSkipped}개 스킵`);
+      const totalDeleted = grandTotalDeletedRemote + grandTotalDeletedLocal;
+      sendLog(`✓ 전체 동기화 완료: ${grandTotalUploaded}개 업로드, NAS삭제 ${grandTotalDeletedRemote}개, 로컬삭제 ${grandTotalDeletedLocal}개, ${grandTotalSkipped}개 스킵`);
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('sync-progress', {
           percent: 100,
           currentFile: '',
-          completed: grandTotalUploaded + grandTotalDeleted,
-          total: grandTotalUploaded + grandTotalDeleted,
+          completed: grandTotalUploaded + totalDeleted,
+          total: grandTotalUploaded + totalDeleted,
           status: 'completed'
         });
       }

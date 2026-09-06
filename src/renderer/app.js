@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const localPath = folderData.localPath || '';
     const remotePath = folderData.remotePath || '/home/Backup';
     const deleteOnRemote = Boolean(folderData.deleteOnRemote);
+    const deleteOnLocal = Boolean(folderData.deleteOnLocal);
     const enabled = folderData.enabled !== false;
 
     const row = document.createElement('div');
@@ -80,7 +81,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="form-group checkbox-group delete-remote-box">
           <label>
             <input type="checkbox" class="folder-delete-remote" ${deleteOnRemote ? 'checked' : ''} />
-            ⚠️ <strong>로컬에서 삭제 시 NAS 백업 파일도 함께 삭제</strong> (미러링 삭제)
+            ⚠️ <strong>로컬에서 삭제 시 NAS 백업 파일도 함께 삭제</strong> (원격 삭제 동기화)
+          </label>
+        </div>
+        <div class="form-group checkbox-group delete-local-box">
+          <label>
+            <input type="checkbox" class="folder-delete-local" ${deleteOnLocal ? 'checked' : ''} />
+            ⚠️ <strong>백업 폴더(NAS)에서 삭제 시 로컬 폴더 및 파일도 함께 삭제</strong> (로컬 삭제 동기화)
           </label>
         </div>
       </div>
@@ -186,6 +193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const localPath = row.querySelector('.folder-local-path').value.trim();
       const remotePath = row.querySelector('.folder-remote-path').value.trim();
       const deleteOnRemote = row.querySelector('.folder-delete-remote').checked;
+      const deleteOnLocal = row.querySelector('.folder-delete-local').checked;
 
       if (localPath || remotePath) {
         folders.push({
@@ -193,6 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           localPath,
           remotePath: remotePath || '/home/Backup',
           deleteOnRemote,
+          deleteOnLocal,
           enabled
         });
       }
