@@ -79,4 +79,40 @@ describe('ConfigStore', () => {
     const loadedStore = new ConfigStore(tempConfigFile);
     expect(loadedStore.get().nas.password).toBe('mySecretPassword123!');
   });
+
+  it('should reload configuration from disk', () => {
+    const store = new ConfigStore(tempConfigFile);
+    store.save({ sync: { intervalMinutes: 10, realtimeSync: false, folders: [] } });
+    expect(store.get().sync.intervalMinutes).toBe(10);
+
+    const current = JSON.parse(fs.readFileSync(tempConfigFile, 'utf-8'));
+    current.sync.intervalMinutes = 45;
+    fs.writeFileSync(tempConfigFile, JSON.stringify(current));
+
+    store.reload();
+    expect(store.get().sync.intervalMinutes).toBe(45);
+  });
+
+  it('should retain existing password when saving with empty password', () => {
+    const store = new ConfigStore(tempConfigFile);
+    store.save({
+      nas: {
+        url: 'https://nas.example.com',
+        username: 'admin',
+        password: 'initialPassword',
+        allowInsecureSSL: true
+      }
+    });
+    expect(store.get().nas.password).toBe('initialPassword');
+
+    store.save({
+      nas: {
+        url: 'https://nas.example.com',
+        username: 'admin',
+        password: '',
+        allowInsecureSSL: true
+      }
+    });
+    expect(store.get().nas.password).toBe('initialPassword');
+  });
 });

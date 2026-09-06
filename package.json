@@ -7,7 +7,7 @@
     "build": "tsc && node -e \"require('fs').cpSync('src/renderer', 'dist/renderer', {recursive: true}); require('fs').cpSync('assets', 'dist/assets', {recursive: true})\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "start": "tsc && electron ."
+    "start": "chcp 65001 >nul && tsc && electron ."
   },
   "dependencies": {
     "webdav": "^5.7.1"

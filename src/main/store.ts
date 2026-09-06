@@ -164,6 +164,11 @@ export class ConfigStore {
     return { ...DEFAULT_CONFIG, sync: { ...DEFAULT_CONFIG.sync, folders: [] } };
   }
 
+  public reload(): AppConfig {
+    this.config = this.load();
+    return this.get();
+  }
+
   get(): AppConfig {
     return {
       ...this.config,
@@ -197,8 +202,17 @@ export class ConfigStore {
       }];
     }
 
+    const incomingNas: Partial<AppConfig['nas']> = newConfig.nas || {};
+    const effectivePassword = (incomingNas.password !== undefined && incomingNas.password !== '')
+      ? incomingNas.password
+      : existing.nas.password;
+
     this.config = {
-      nas: { ...existing.nas, ...(newConfig.nas || {}) },
+      nas: {
+        ...existing.nas,
+        ...incomingNas,
+        password: effectivePassword
+      },
       sync: {
         ...existing.sync,
         ...(newConfig.sync || {}),
@@ -206,11 +220,23 @@ export class ConfigStore {
       }
     };
 
+    let encryptedPassword = encryptSecret(this.config.nas.password);
+    if (!encryptedPassword) {
+      try {
+        if (fs.existsSync(this.filePath)) {
+          const rawDisk = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
+          if (rawDisk.nas?.encryptedPassword) {
+            encryptedPassword = rawDisk.nas.encryptedPassword;
+          }
+        }
+      } catch {}
+    }
+
     const storedData: StoredConfig = {
       nas: {
         url: this.config.nas.url,
         username: this.config.nas.username,
-        encryptedPassword: encryptSecret(this.config.nas.password),
+        encryptedPassword,
         allowInsecureSSL: this.config.nas.allowInsecureSSL
       },
       sync: {
