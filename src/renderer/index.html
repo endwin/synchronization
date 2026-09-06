@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synology Sync Manager</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-area">
+        <span class="icon">☁️</span>
+        <h1>Synology Sync Manager</h1>
+      </div>
+      <div class="status-badge" id="globalStatusBadge">대기 중</div>
+    </header>
+
+    <main class="content-grid">
+      <!-- 1. NAS Connection Card -->
+      <section class="card">
+        <div class="card-header">
+          <h2>🌐 1. 시놀로지 NAS 연결 설정</h2>
+        </div>
+        <div class="card-body form-group-grid">
+          <div class="form-group full-width">
+            <label for="nasUrl">WebDAV 서버 주소 (HTTPS 권장)</label>
+            <input type="text" id="nasUrl" placeholder="https://my-nas.synology.me:5006" />
+          </div>
+          <div class="form-group">
+            <label for="nasUsername">아이디</label>
+            <input type="text" id="nasUsername" placeholder="username" />
+          </div>
+          <div class="form-group">
+            <label for="nasPassword">비밀번호</label>
+            <input type="password" id="nasPassword" placeholder="••••••••" />
+          </div>
+          <div class="form-group full-width checkbox-group">
+            <label>
+              <input type="checkbox" id="allowInsecureSSL" checked />
+              자체 서명(사설) SSL 인증서 허용 (SSL 검증 오류 방지)
+            </label>
+          </div>
+          <div class="card-actions full-width">
+            <button type="button" class="btn btn-secondary" id="btnTestConnection">연결 테스트</button>
+            <span class="test-result" id="testResultMsg"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Folder Mapping Card -->
+      <section class="card">
+        <div class="card-header">
+          <h2>📁 2. 동기화 폴더 매핑</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="localPath">로컬 동기화 폴더</label>
+            <div class="input-with-button">
+              <input type="text" id="localPath" placeholder="선택된 폴더 없음" readonly />
+              <button type="button" class="btn btn-secondary" id="btnSelectFolder">폴더 찾아보기</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="remotePath">NAS 원격 저장 폴더</label>
+            <input type="text" id="remotePath" placeholder="/home/Backup" />
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Schedule & Actions Card -->
+      <section class="card">
+        <div class="card-header">
+          <h2>⏱️ 3. 주기 및 동기화 제어</h2>
+        </div>
+        <div class="card-body">
+          <div class="schedule-controls">
+            <div class="form-group">
+              <label for="syncInterval">자동 동기화 주기</label>
+              <select id="syncInterval">
+                <option value="0">수동 실행만</option>
+                <option value="15">15분마다</option>
+                <option value="30" selected>30분마다 (기본)</option>
+                <option value="60">1시간마다</option>
+                <option value="360">6시간마다</option>
+                <option value="1440">매일 1회</option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-primary" id="btnSaveConfig">설정 저장</button>
+          </div>
+
+          <div class="sync-actions-box">
+            <button type="button" class="btn btn-success btn-large" id="btnStartSync">
+              ▶ 지금 즉시 동기화 실행
+            </button>
+            
+            <div class="progress-section" id="progressSection">
+              <div class="progress-info">
+                <span id="progressCurrentFile">대기 상태</span>
+                <span id="progressPercent">0%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Real-time Activity Logs Card -->
+      <section class="card full-width-card">
+        <div class="card-header logs-header">
+          <h2>📜 4. 활동 로그</h2>
+          <button type="button" class="btn-text" id="btnClearLogs">로그 지우기</button>
+        </div>
+        <div class="card-body">
+          <div class="log-console" id="logConsole">
+            <div class="log-entry system">[시스템] Synology Sync Manager가 준비되었습니다.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
