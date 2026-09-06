@@ -47,6 +47,7 @@ if (!gotTheLock) {
   let tray: any = null;
   let isSyncing = false;
   let abortSync = false;
+  let isStartedHidden = false;
 
   const configPath = path.join(app.getPath('userData'), 'config.json');
   const store = new ConfigStore(configPath);
@@ -307,14 +308,21 @@ if (!gotTheLock) {
     ];
     const iconPath = iconCandidates.find(p => fs.existsSync(p)) || iconCandidates[0];
 
-    const startHidden = process.argv.includes('--hidden');
+    const isHiddenArg = process.argv.some(arg => {
+      const lower = arg.toLowerCase();
+      return lower === '--hidden' || lower === '-hidden' || lower === '/hidden' || lower.includes('hidden');
+    });
+    const loginItemSettings = app.getLoginItemSettings();
+    isStartedHidden = isHiddenArg || Boolean(loginItemSettings.wasOpenedAtLogin) || Boolean(loginItemSettings.wasOpenedAsHidden);
+
+    sendLog(`🚀 앱 시작 모드: ${isStartedHidden ? '시스템 트레이 모드 (화면 숨김)' : '화면 표시 (일반 시작)'}`);
 
     mainWindow = new BrowserWindow({
       width: 820,
       height: 840,
       minWidth: 700,
       minHeight: 650,
-      show: !startHidden,
+      show: !isStartedHidden,
       title: 'koken Sync Manager',
       icon: iconPath,
       autoHideMenuBar: true,
@@ -324,6 +332,10 @@ if (!gotTheLock) {
         contextIsolation: true
       }
     });
+
+    if (isStartedHidden) {
+      mainWindow.hide();
+    }
 
     Menu.setApplicationMenu(null);
     mainWindow.removeMenu();
@@ -355,6 +367,31 @@ if (!gotTheLock) {
     return process.execPath;
   }
 
+  const LEGACY_RUN_KEYS = [
+    'SynologySyncManager',
+    'electron.app.Synology Sync Manager',
+    'electron.app.synology-sync-manager',
+    'synology-sync-manager',
+    'electron.app.koken Sync Manager',
+    'electron.app.koken-sync-manager',
+    'koken-sync-manager'
+  ];
+
+  function cleanLegacyRunKeys(): void {
+    if (process.platform !== 'win32') return;
+    for (const keyName of LEGACY_RUN_KEYS) {
+      try {
+        child_process.execFileSync('reg.exe', [
+          'delete',
+          'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+          '/v',
+          keyName,
+          '/f'
+        ], { stdio: 'ignore' });
+      } catch {}
+    }
+  }
+
   function isAutoStartEnabled(): boolean {
     if (process.platform === 'win32') {
       try {
@@ -366,18 +403,7 @@ if (!gotTheLock) {
         ], { stdio: 'ignore' });
         return true;
       } catch {
-        // Fallback check for legacy key
-        try {
-          child_process.execFileSync('reg.exe', [
-            'query',
-            'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
-            '/v',
-            'SynologySyncManager'
-          ], { stdio: 'ignore' });
-          return true;
-        } catch {
-          return false;
-        }
+        return false;
       }
     }
     try {
@@ -392,6 +418,8 @@ if (!gotTheLock) {
     const exePath = getEffectiveExePath();
 
     if (process.platform === 'win32') {
+      cleanLegacyRunKeys();
+
       try {
         if (enable) {
           child_process.execFileSync('reg.exe', [
@@ -405,17 +433,7 @@ if (!gotTheLock) {
             `"${exePath}" --hidden`,
             '/f'
           ]);
-          // Clean up legacy key if exists
-          try {
-            child_process.execFileSync('reg.exe', [
-              'delete',
-              'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
-              '/v',
-              'SynologySyncManager',
-              '/f'
-            ], { stdio: 'ignore' });
-          } catch {}
-          sendLog(`🚀 Windows 시작 프로그램에 등록되었습니다. (경로: ${path.basename(exePath)})`);
+          sendLog(`🚀 Windows 시작 프로그램에 등록되었습니다. (부팅 시 트레이 백그라운드 자동 실행: "${path.basename(exePath)}" --hidden)`);
         } else {
           try {
             child_process.execFileSync('reg.exe', [
@@ -426,35 +444,43 @@ if (!gotTheLock) {
               '/f'
             ], { stdio: 'ignore' });
           } catch {}
-          try {
-            child_process.execFileSync('reg.exe', [
-              'delete',
-              'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
-              '/v',
-              'SynologySyncManager',
-              '/f'
-            ], { stdio: 'ignore' });
-          } catch {}
           sendLog('🚀 Windows 시작 프로그램 등록이 해제되었습니다.');
         }
       } catch (err) {
         console.error('Failed to update Windows registry Run key:', err);
       }
-    }
 
-    try {
-      app.setLoginItemSettings({
-        openAtLogin: enable,
-        openAsHidden: true,
-        path: exePath,
-        args: ['--hidden']
-      });
-    } catch (err) {
-      console.error('Failed to set login item settings:', err);
+      // Ensure duplicate Electron login item entry is cleared on Windows
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: false
+        });
+      } catch {}
+    } else {
+      try {
+        app.setLoginItemSettings({
+          openAtLogin: enable,
+          openAsHidden: true,
+          path: exePath,
+          args: ['--hidden']
+        });
+      } catch (err) {
+        console.error('Failed to set login item settings:', err);
+      }
     }
   }
 
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, commandLine) => {
+    const isHidden = Array.isArray(commandLine) && commandLine.some(arg => {
+      const lower = arg.toLowerCase();
+      return lower === '--hidden' || lower === '-hidden' || lower === '/hidden' || lower.includes('hidden');
+    });
+
+    if (isHidden) {
+      sendLog('⚡ 백그라운드 시작 프로세스 중복 호출 감지됨 (화면 창을 띄우지 않습니다)');
+      return;
+    }
+
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
@@ -566,7 +592,7 @@ if (!gotTheLock) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
-      } else {
+      } else if (!isStartedHidden) {
         mainWindow?.show();
       }
     });
