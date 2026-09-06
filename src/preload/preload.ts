@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startSync: () => ipcRenderer.invoke('start-sync'),
   cancelSync: () => ipcRenderer.invoke('cancel-sync'),
   openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
+  logMessage: (msg: string) => ipcRenderer.invoke('log-message', msg),
   onSyncProgress: (callback: (progress: any) => void) => {
     ipcRenderer.on('sync-progress', (_event, value) => callback(value));
   },

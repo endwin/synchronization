@@ -443,6 +443,11 @@ if (!gotTheLock) {
       return true;
     });
 
+    ipcMain.handle('log-message', (_event, msg: string) => {
+      sendLog(msg);
+      return true;
+    });
+
     createWindow();
 
     app.on('activate', () => {

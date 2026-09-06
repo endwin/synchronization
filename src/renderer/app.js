@@ -46,6 +46,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     logConsole.scrollTop = logConsole.scrollHeight;
   }
 
+  function logAction(msg) {
+    if (window.electronAPI && window.electronAPI.logMessage) {
+      window.electronAPI.logMessage(msg);
+    } else {
+      const now = new Date();
+      appendLog(`[${now.toLocaleTimeString()}] ${msg}`);
+    }
+  }
+
   function setStatus(text, type = '') {
     globalStatusBadge.textContent = text;
     globalStatusBadge.className = `status-badge ${type}`.trim();
@@ -140,11 +149,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
+    // Checkbox change events for folder row
+    const chkEnabled = row.querySelector('.folder-enabled');
+    const chkDeleteRemote = row.querySelector('.folder-delete-remote');
+    const chkDeleteLocal = row.querySelector('.folder-delete-local');
+
+    chkEnabled.addEventListener('change', () => {
+      const folderPath = localInput.value.trim() || '지정되지 않은 폴더';
+      const status = chkEnabled.checked ? '동기화 포함 (ON)' : '동기화 일시 중지 (OFF)';
+      logAction(`📁 [폴더 체크박스] [${folderPath}] ${status}`);
+    });
+
+    chkDeleteRemote.addEventListener('change', () => {
+      const folderPath = localInput.value.trim() || '지정되지 않은 폴더';
+      const status = chkDeleteRemote.checked ? '활성화 (로컬 파일 삭제 시 NAS 백업 파일도 함께 삭제)' : '비활성화 (로컬에서 삭제해도 NAS 파일 유지)';
+      logAction(`🗑️ [폴더 체크박스] [${folderPath}] 원격 삭제 미러링: ${status}`);
+    });
+
+    chkDeleteLocal.addEventListener('change', () => {
+      const folderPath = localInput.value.trim() || '지정되지 않은 폴더';
+      const status = chkDeleteLocal.checked ? '활성화 (NAS 백업 삭제 시 로컬 폴더/파일도 함께 삭제)' : '비활성화 (NAS에서 삭제해도 로컬 파일 유지)';
+      logAction(`🗑️ [폴더 체크박스] [${folderPath}] 로컬 삭제 미러링: ${status}`);
+    });
+
     // Delete folder button event
     const btnDelete = row.querySelector('.btn-delete-folder');
     btnDelete.addEventListener('click', () => {
+      const folderPath = localInput.value.trim() || '동기화 폴더';
       row.remove();
       updateNoFoldersNotice();
+      logAction(`🗑️ [폴더 삭제] 목록에서 제외됨: ${folderPath}`);
     });
 
     foldersContainer.appendChild(row);
@@ -214,6 +248,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       btnTestConnection.disabled = false;
     }
+  });
+
+  // Checkbox & Setting change events
+  allowInsecureSSLInput.addEventListener('change', () => {
+    const status = allowInsecureSSLInput.checked ? '허용 (SSL 검증 오류 방지)' : '차단 (엄격한 SSL 검증)';
+    logAction(`🌐 [체크박스] 자체 서명(사설) SSL 인증서: ${status}`);
+  });
+
+  realtimeSyncInput.addEventListener('change', () => {
+    const status = realtimeSyncInput.checked ? '활성화 (로컬 변경 시 즉시 동기화)' : '비활성화 (주기/수동 동기화만 동작)';
+    logAction(`⚡ [체크박스] 실시간 파일 감지 및 자동 동기화: ${status}`);
+  });
+
+  autoStartInput.addEventListener('change', () => {
+    const status = autoStartInput.checked ? '활성화 (Windows 시작 시 백그라운드 자동 실행)' : '비활성화 (수동 실행)';
+    logAction(`🚀 [체크박스] Windows 시작 시 자동 실행: ${status}`);
+  });
+
+  syncIntervalSelect.addEventListener('change', () => {
+    const label = syncIntervalSelect.options[syncIntervalSelect.selectedIndex].text;
+    logAction(`⏱️ [설정] 자동 동기화 주기: ${label}`);
   });
 
   // Save config helper
