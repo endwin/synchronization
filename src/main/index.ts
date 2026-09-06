@@ -7,6 +7,7 @@ import { SynologyWebDAVClient } from '../sync/webdav-client';
 import { scanLocalDirectory } from '../sync/file-scanner';
 import { calculateSyncPlan } from '../sync/sync-engine';
 import { SyncScheduler } from '../sync/scheduler';
+import { RealtimeFileWatcher } from '../sync/file-watcher';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: any = null;
@@ -96,10 +97,28 @@ async function executeSync() {
 
 const scheduler = new SyncScheduler(executeSync);
 
+const fileWatcher = new RealtimeFileWatcher({
+  debounceMs: 3000,
+  onFileChange: (changedFile) => {
+    sendLog(`⚡ [실시간 감지] 파일 변경이 감지되었습니다 (${changedFile || '항목'}). 동기화를 시작합니다.`);
+    executeSync();
+  }
+});
+
+function updateWatcherState() {
+  const cfg = store.get();
+  if (cfg.sync.realtimeSync && cfg.sync.localPath) {
+    sendLog(`⚡ 실시간 감시 활성화: ${cfg.sync.localPath}`);
+    fileWatcher.start(cfg.sync.localPath);
+  } else {
+    fileWatcher.stop();
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 760,
-    height: 740,
+    height: 780,
     minWidth: 640,
     minHeight: 600,
     title: 'Synology Sync Manager',
@@ -126,6 +145,7 @@ function createWindow() {
 
   tray = createSystemTray(mainWindow, executeSync);
   scheduler.setIntervalMinutes(store.get().sync.intervalMinutes);
+  updateWatcherState();
 }
 
 app.whenReady().then(() => {
@@ -134,6 +154,7 @@ app.whenReady().then(() => {
   ipcMain.handle('save-config', (_event, cfg) => {
     store.save(cfg);
     scheduler.setIntervalMinutes(cfg.sync?.intervalMinutes ?? 30);
+    updateWatcherState();
     sendLog('설정이 저장되었습니다.');
     return true;
   });
@@ -176,5 +197,6 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  fileWatcher.stop();
   (app as any).isQuitting = true;
 });

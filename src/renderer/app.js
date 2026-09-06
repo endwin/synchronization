@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSelectFolder = document.getElementById('btnSelectFolder');
 
   const syncIntervalSelect = document.getElementById('syncInterval');
+  const realtimeSyncInput = document.getElementById('realtimeSync');
   const btnSaveConfig = document.getElementById('btnSaveConfig');
   const btnStartSync = document.getElementById('btnStartSync');
 
@@ -50,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (config.sync) {
         localPathInput.value = config.sync.localPath || '';
         syncIntervalSelect.value = (config.sync.intervalMinutes ?? 30).toString();
+        realtimeSyncInput.checked = Boolean(config.sync.realtimeSync);
       }
     }
   } catch (err) {
@@ -110,7 +112,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       sync: {
         localPath: localPathInput.value.trim(),
-        intervalMinutes: parseInt(syncIntervalSelect.value, 10) || 0
+        intervalMinutes: parseInt(syncIntervalSelect.value, 10) || 0,
+        realtimeSync: realtimeSyncInput.checked
       }
     };
   }

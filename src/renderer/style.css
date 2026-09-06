@@ -160,6 +160,19 @@ input:focus, select:focus {
   color: var(--text-primary);
 }
 
+.realtime-box {
+  background-color: #f0f9ff;
+  border: 1px dashed #bae6fd;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.realtime-box label {
+  color: #0369a1;
+  font-size: 13px;
+}
+
 .input-with-button {
   display: flex;
   gap: 8px;
