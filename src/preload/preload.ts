@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config: any) => ipcRenderer.invoke('save-config', config),
+  resetAllSettings: () => ipcRenderer.invoke('reset-all-settings'),
   selectLocalFolder: () => ipcRenderer.invoke('select-local-folder'),
   testConnection: (nasConfig: any) => ipcRenderer.invoke('test-connection', nasConfig),
   startSync: () => ipcRenderer.invoke('start-sync'),

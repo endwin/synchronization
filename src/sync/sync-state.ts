@@ -84,4 +84,13 @@ export class SyncStateManager {
       this.save();
     }
   }
+
+  public clearAll(): void {
+    this.state = {};
+    try {
+      if (fs.existsSync(this.filePath)) {
+        fs.unlinkSync(this.filePath);
+      }
+    } catch {}
+  }
 }

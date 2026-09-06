@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSaveConfig = document.getElementById('btnSaveConfig');
   const btnStartSync = document.getElementById('btnStartSync');
   const btnCancelSync = document.getElementById('btnCancelSync');
+  const btnResetAll = document.getElementById('btnResetAll');
 
   // NAS Modal Elements
   const nasModalOverlay = document.getElementById('nasModalOverlay');
@@ -305,6 +306,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnSaveConfig.disabled = false;
     }
   });
+
+  // Reset All Settings
+  if (btnResetAll) {
+    btnResetAll.addEventListener('click', async () => {
+      const ok = confirm('시놀로지 NAS 접속 정보 및 등록된 동기화 폴더 설정을 모두 초기화하시겠습니까?');
+      if (!ok) return;
+
+      try {
+        btnResetAll.disabled = true;
+        await window.electronAPI.resetAllSettings();
+
+        // Reset UI fields
+        nasUrlInput.value = '';
+        nasUsernameInput.value = '';
+        nasPasswordInput.value = '';
+        allowInsecureSSLInput.checked = true;
+        testResultMsg.textContent = '';
+        syncIntervalSelect.value = '30';
+        realtimeSyncInput.checked = false;
+        autoStartInput.checked = false;
+
+        foldersContainer.innerHTML = '';
+        createFolderRow();
+
+        setStatus('초기화 완료', 'success');
+        setTimeout(() => setStatus('대기 중'), 3000);
+        appendLog('[시스템] 모든 설정(NAS 접속 정보, 동기화 폴더, 동기화 상태)이 성공적으로 초기화되었습니다.');
+      } catch (err) {
+        appendLog(`[오류] 초기화 실패: ${err.message}`);
+      } finally {
+        btnResetAll.disabled = false;
+      }
+    });
+  }
 
   // Start Sync Now
   btnStartSync.addEventListener('click', async () => {

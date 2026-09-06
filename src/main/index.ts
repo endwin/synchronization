@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as child_process from 'child_process';
@@ -311,12 +311,16 @@ if (!gotTheLock) {
       show: !startHidden,
       title: 'Synology Sync Manager',
       icon: iconPath,
+      autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(__dirname, '../preload/preload.js'),
         nodeIntegration: false,
         contextIsolation: true
       }
     });
+
+    Menu.setApplicationMenu(null);
+    mainWindow.removeMenu();
 
     const rendererPathCandidates = [
       path.join(__dirname, '../renderer/index.html'),
@@ -383,6 +387,16 @@ if (!gotTheLock) {
       }
       sendLog('설정이 저장되었습니다.');
       return true;
+    });
+
+    ipcMain.handle('reset-all-settings', () => {
+      const clean = store.reset();
+      syncStateManager.clearAll();
+      fileWatcher.stop();
+      scheduler.setIntervalMinutes(30);
+      updateAutoStartSetting(false);
+      sendLog('🔄 모든 설정(NAS 접속 정보, 동기화 폴더 목록, 동기화 상태)이 초기화되었습니다.');
+      return clean;
     });
 
     ipcMain.handle('select-local-folder', async () => {

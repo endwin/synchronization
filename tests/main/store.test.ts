@@ -134,4 +134,29 @@ describe('ConfigStore', () => {
     const reloaded = new ConfigStore(tempConfigFile);
     expect(reloaded.get().sync.autoStart).toBe(true);
   });
+
+  it('should reset configuration to clean default state', () => {
+    const store = new ConfigStore(tempConfigFile);
+    store.save({
+      nas: { url: 'https://nas.koken.co.kr', username: 'admin', password: 'secretPassword', allowInsecureSSL: false },
+      sync: {
+        folders: [{ id: 'f1', localPath: 'C:/test', remotePath: '/backup', deleteOnRemote: true, deleteOnLocal: true, enabled: true }],
+        intervalMinutes: 15,
+        realtimeSync: true,
+        autoStart: true
+      }
+    });
+
+    const resetResult = store.reset();
+    expect(resetResult.nas.url).toBe('');
+    expect(resetResult.nas.username).toBe('');
+    expect(resetResult.nas.password).toBe('');
+    expect(resetResult.sync.folders.length).toBe(0);
+    expect(resetResult.sync.realtimeSync).toBe(false);
+    expect(resetResult.sync.autoStart).toBe(false);
+
+    const reloaded = new ConfigStore(tempConfigFile);
+    expect(reloaded.get().nas.url).toBe('');
+    expect(reloaded.get().sync.folders.length).toBe(0);
+  });
 });

@@ -55,4 +55,22 @@ describe('SyncStateManager', () => {
     const reloaded = new SyncStateManager(tempStateFile);
     expect(reloaded.getFolderState('folder-1').size).toBe(0);
   });
+
+  it('should clear all folder states on clearAll', () => {
+    const manager = new SyncStateManager(tempStateFile);
+    const files = new Map<string, { size: number; mtime: number }>();
+    files.set('test.txt', { size: 10, mtime: 1000 });
+    manager.updateFolderState('folder-1', files);
+    manager.updateFolderState('folder-2', files);
+
+    expect(manager.getFolderState('folder-1').size).toBe(1);
+    expect(manager.getFolderState('folder-2').size).toBe(1);
+
+    manager.clearAll();
+    expect(manager.getFolderState('folder-1').size).toBe(0);
+    expect(manager.getFolderState('folder-2').size).toBe(0);
+
+    const reloaded = new SyncStateManager(tempStateFile);
+    expect(reloaded.getFolderState('folder-1').size).toBe(0);
+  });
 });

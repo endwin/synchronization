@@ -179,6 +179,40 @@ export class ConfigStore {
     return this.get();
   }
 
+  public reset(): AppConfig {
+    this.config = {
+      nas: {
+        url: '',
+        username: '',
+        password: '',
+        allowInsecureSSL: true,
+      },
+      sync: {
+        folders: [],
+        intervalMinutes: 30,
+        realtimeSync: false,
+        autoStart: false,
+      }
+    };
+    const storedData: StoredConfig = {
+      nas: {
+        url: '',
+        username: '',
+        encryptedPassword: '',
+        allowInsecureSSL: true
+      },
+      sync: {
+        folders: [],
+        intervalMinutes: 30,
+        realtimeSync: false,
+        autoStart: false
+      }
+    };
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+    fs.writeFileSync(this.filePath, JSON.stringify(storedData, null, 2), 'utf-8');
+    return this.get();
+  }
+
   get(): AppConfig {
     return {
       ...this.config,
