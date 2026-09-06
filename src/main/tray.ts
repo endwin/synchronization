@@ -1,8 +1,20 @@
 import { Tray, Menu, BrowserWindow, app, nativeImage } from 'electron';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export function createSystemTray(mainWindow: BrowserWindow, onSyncNow: () => void): Tray {
-  const iconBase64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAW0lEQVR42mNkQAO/gPg/EP8HYi4GBgYGRkZGhn/o/P/oYgwM////R1ZgxKYAG3Ds2DFcypAV4LMAl424DMAlR1yG4pYlOgtxmoDLK5T6AKsLmBkYGFDVEMwIAF8Wj9f9zRrnAAAAAElFTkSuQmCC';
-  const icon = nativeImage.createFromBuffer(Buffer.from(iconBase64, 'base64'));
+  const iconCandidates = [
+    path.join(__dirname, '../../assets/icon.png'),
+    path.join(__dirname, '../assets/icon.png'),
+    path.join(app.getAppPath(), 'assets/icon.png')
+  ];
+  const iconPath = iconCandidates.find(p => fs.existsSync(p)) || iconCandidates[0];
+
+  let icon = nativeImage.createFromPath(iconPath);
+  if (icon.isEmpty() && fs.existsSync(iconPath)) {
+    icon = nativeImage.createFromBuffer(fs.readFileSync(iconPath));
+  }
+
   const tray = new Tray(icon);
 
   const contextMenu = Menu.buildFromTemplate([
