@@ -1,4 +1,4 @@
-import { createClient, WebDAVClient, FileStat } from 'webdav';
+import type { WebDAVClient, FileStat } from 'webdav';
 import * as fs from 'fs';
 import * as https from 'https';
 
@@ -15,23 +15,35 @@ export interface SynologyWebDAVConfig {
   allowInsecureSSL?: boolean;
 }
 
+const getWebDAVModule = async (): Promise<any> => {
+  if (process.env.VITEST) {
+    return require('webdav');
+  }
+  const importFn = new Function('s', 'return import(s)');
+  return importFn('webdav');
+};
+
 export class SynologyWebDAVClient {
-  private client: WebDAVClient;
+  private clientPromise: Promise<WebDAVClient>;
 
   constructor(config: SynologyWebDAVConfig) {
-    const options: any = {
-      username: config.username,
-      password: config.password,
-    };
-    if (config.allowInsecureSSL) {
-      options.httpsAgent = new https.Agent({ rejectUnauthorized: false });
-    }
-    this.client = createClient(config.url, options);
+    this.clientPromise = (async () => {
+      const { createClient } = await getWebDAVModule();
+      const options: any = {
+        username: config.username,
+        password: config.password,
+      };
+      if (config.allowInsecureSSL) {
+        options.httpsAgent = new https.Agent({ rejectUnauthorized: false });
+      }
+      return createClient(config.url, options);
+    })();
   }
 
   async testConnection(): Promise<{ success: boolean; message?: string }> {
     try {
-      await this.client.getDirectoryContents('/');
+      const client = await this.clientPromise;
+      await client.getDirectoryContents('/');
       return { success: true };
     } catch (err: any) {
       return { success: false, message: err.message || 'Connection failed' };
@@ -39,6 +51,7 @@ export class SynologyWebDAVClient {
   }
 
   async ensureDir(remoteDirPath: string): Promise<void> {
+    const client = await this.clientPromise;
     const cleanPath = remoteDirPath.normalize('NFC').replace(/\\/g, '/');
     const parts = cleanPath.split('/').filter(Boolean);
     let currentPath = '';
@@ -46,9 +59,9 @@ export class SynologyWebDAVClient {
     for (const part of parts) {
       currentPath += `/${part}`;
       try {
-        const exists = await this.client.exists(currentPath);
+        const exists = await client.exists(currentPath);
         if (!exists) {
-          await this.client.createDirectory(currentPath);
+          await client.createDirectory(currentPath);
         }
       } catch {
         // Ignore if already exists or permission
@@ -57,19 +70,20 @@ export class SynologyWebDAVClient {
   }
 
   async uploadFile(localPath: string, remotePath: string): Promise<void> {
+    const client = await this.clientPromise;
     const readStream = fs.createReadStream(localPath);
-    await this.client.putFileContents(remotePath, readStream, { overwrite: true });
+    await client.putFileContents(remotePath, readStream, { overwrite: true });
   }
 
   async listRemoteFiles(remoteBasePath: string): Promise<Map<string, RemoteFileStat>> {
+    const client = await this.clientPromise;
     const fileMap = new Map<string, RemoteFileStat>();
     const basePath = remoteBasePath.normalize('NFC').replace(/\\/g, '/').replace(/\/+$/, '');
-    const self = this;
 
     async function walk(targetPath: string) {
       let items: FileStat[] = [];
       try {
-        const contents = await self.client.getDirectoryContents(targetPath);
+        const contents = await client.getDirectoryContents(targetPath);
         items = Array.isArray(contents) ? (contents as FileStat[]) : ((contents as any).data as FileStat[]);
       } catch {
         return;
