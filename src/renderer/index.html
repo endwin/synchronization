@@ -49,22 +49,16 @@
         </div>
       </section>
 
-      <!-- 2. Folder Mapping Card -->
+      <!-- 2. Folder Mapping Card (Multi-Folder Support) -->
       <section class="card">
-        <div class="card-header">
-          <h2>📁 2. 동기화 폴더 매핑</h2>
+        <div class="card-header folders-card-header">
+          <h2>📁 2. 동기화 폴더 설정 (다중 폴더 지원)</h2>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnAddFolder">➕ 새 폴더 추가</button>
         </div>
         <div class="card-body">
-          <div class="form-group">
-            <label for="localPath">로컬 동기화 폴더</label>
-            <div class="input-with-button">
-              <input type="text" id="localPath" placeholder="선택된 폴더 없음" readonly />
-              <button type="button" class="btn btn-secondary" id="btnSelectFolder">폴더 찾아보기</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="remotePath">NAS 원격 저장 폴더</label>
-            <input type="text" id="remotePath" placeholder="/home/Backup" />
+          <div id="foldersContainer" class="folders-container"></div>
+          <div id="noFoldersNotice" class="no-folders-notice" style="display: none;">
+            등록된 동기화 폴더가 없습니다. <strong>[➕ 새 폴더 추가]</strong>를 클릭해 폴더를 등록해 주세요.
           </div>
         </div>
       </section>

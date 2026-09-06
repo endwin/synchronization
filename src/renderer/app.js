@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  // Elements
+  // NAS Elements
   const nasUrlInput = document.getElementById('nasUrl');
   const nasUsernameInput = document.getElementById('nasUsername');
   const nasPasswordInput = document.getElementById('nasPassword');
@@ -7,20 +7,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnTestConnection = document.getElementById('btnTestConnection');
   const testResultMsg = document.getElementById('testResultMsg');
 
-  const localPathInput = document.getElementById('localPath');
-  const remotePathInput = document.getElementById('remotePath');
-  const btnSelectFolder = document.getElementById('btnSelectFolder');
+  // Folder Container Elements
+  const foldersContainer = document.getElementById('foldersContainer');
+  const btnAddFolder = document.getElementById('btnAddFolder');
+  const noFoldersNotice = document.getElementById('noFoldersNotice');
 
+  // Controls Elements
   const syncIntervalSelect = document.getElementById('syncInterval');
   const realtimeSyncInput = document.getElementById('realtimeSync');
   const btnSaveConfig = document.getElementById('btnSaveConfig');
   const btnStartSync = document.getElementById('btnStartSync');
 
+  // Status & Progress Elements
   const globalStatusBadge = document.getElementById('globalStatusBadge');
   const progressCurrentFile = document.getElementById('progressCurrentFile');
   const progressPercent = document.getElementById('progressPercent');
   const progressBarFill = document.getElementById('progressBarFill');
 
+  // Log Elements
   const logConsole = document.getElementById('logConsole');
   const btnClearLogs = document.getElementById('btnClearLogs');
 
@@ -37,6 +41,80 @@ document.addEventListener('DOMContentLoaded', async () => {
     globalStatusBadge.className = `status-badge ${type}`.trim();
   }
 
+  function updateNoFoldersNotice() {
+    const count = foldersContainer.querySelectorAll('.folder-row').length;
+    noFoldersNotice.style.display = count === 0 ? 'block' : 'none';
+  }
+
+  function createFolderRow(folderData = {}) {
+    const id = folderData.id || `folder_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const localPath = folderData.localPath || '';
+    const remotePath = folderData.remotePath || '/home/Backup';
+    const deleteOnRemote = Boolean(folderData.deleteOnRemote);
+    const enabled = folderData.enabled !== false;
+
+    const row = document.createElement('div');
+    row.className = 'folder-row';
+    row.dataset.id = id;
+
+    row.innerHTML = `
+      <div class="folder-row-header">
+        <label class="folder-enable-label">
+          <input type="checkbox" class="folder-enabled" ${enabled ? 'checked' : ''} />
+          <span class="folder-title">동기화 폴더</span>
+        </label>
+        <button type="button" class="btn-danger-text btn-delete-folder">🗑️ 삭제</button>
+      </div>
+      <div class="folder-row-body">
+        <div class="form-group">
+          <label>로컬 폴더</label>
+          <div class="input-with-button">
+            <input type="text" class="folder-local-path" value="${localPath}" placeholder="로컬 폴더 선택" readonly />
+            <button type="button" class="btn btn-secondary btn-sm btn-browse-folder">찾아보기</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>NAS 원격 저장 폴더</label>
+          <input type="text" class="folder-remote-path" value="${remotePath}" placeholder="/home/Backup" />
+        </div>
+        <div class="form-group checkbox-group delete-remote-box">
+          <label>
+            <input type="checkbox" class="folder-delete-remote" ${deleteOnRemote ? 'checked' : ''} />
+            ⚠️ <strong>로컬에서 삭제 시 NAS 백업 파일도 함께 삭제</strong> (미러링 삭제)
+          </label>
+        </div>
+      </div>
+    `;
+
+    // Browse button event
+    const btnBrowse = row.querySelector('.btn-browse-folder');
+    const localInput = row.querySelector('.folder-local-path');
+    btnBrowse.addEventListener('click', async () => {
+      try {
+        const selected = await window.electronAPI.selectLocalFolder();
+        if (selected) {
+          localInput.value = selected;
+        }
+      } catch (err) {
+        appendLog(`[오류] 폴더 선택 실패: ${err.message}`);
+      }
+    });
+
+    // Delete folder button event
+    const btnDelete = row.querySelector('.btn-delete-folder');
+    btnDelete.addEventListener('click', () => {
+      row.remove();
+      updateNoFoldersNotice();
+    });
+
+    foldersContainer.appendChild(row);
+    updateNoFoldersNotice();
+  }
+
+  btnAddFolder.addEventListener('click', () => {
+    createFolderRow();
+  });
+
   // Load initial config
   try {
     const config = await window.electronAPI.getConfig();
@@ -46,29 +124,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         nasUsernameInput.value = config.nas.username || '';
         nasPasswordInput.value = config.nas.password || '';
         allowInsecureSSLInput.checked = config.nas.allowInsecureSSL !== false;
-        remotePathInput.value = config.nas.remotePath || '/home/Backup';
       }
       if (config.sync) {
-        localPathInput.value = config.sync.localPath || '';
         syncIntervalSelect.value = (config.sync.intervalMinutes ?? 30).toString();
         realtimeSyncInput.checked = Boolean(config.sync.realtimeSync);
+
+        const folders = Array.isArray(config.sync.folders) ? config.sync.folders : [];
+        foldersContainer.innerHTML = '';
+        if (folders.length > 0) {
+          for (const f of folders) {
+            createFolderRow(f);
+          }
+        } else {
+          // Default empty row
+          createFolderRow();
+        }
       }
     }
   } catch (err) {
     appendLog(`[오류] 설정 불러오기 실패: ${err.message}`);
   }
-
-  // Select local folder
-  btnSelectFolder.addEventListener('click', async () => {
-    try {
-      const selected = await window.electronAPI.selectLocalFolder();
-      if (selected) {
-        localPathInput.value = selected;
-      }
-    } catch (err) {
-      appendLog(`[오류] 폴더 선택 실패: ${err.message}`);
-    }
-  });
 
   // Test NAS Connection
   btnTestConnection.addEventListener('click', async () => {
@@ -102,16 +177,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Save config helper
   function collectConfig() {
+    const folderRows = foldersContainer.querySelectorAll('.folder-row');
+    const folders = [];
+
+    folderRows.forEach((row) => {
+      const id = row.dataset.id;
+      const enabled = row.querySelector('.folder-enabled').checked;
+      const localPath = row.querySelector('.folder-local-path').value.trim();
+      const remotePath = row.querySelector('.folder-remote-path').value.trim();
+      const deleteOnRemote = row.querySelector('.folder-delete-remote').checked;
+
+      if (localPath || remotePath) {
+        folders.push({
+          id,
+          localPath,
+          remotePath: remotePath || '/home/Backup',
+          deleteOnRemote,
+          enabled
+        });
+      }
+    });
+
     return {
       nas: {
         url: nasUrlInput.value.trim(),
         username: nasUsernameInput.value.trim(),
         password: nasPasswordInput.value.trim(),
-        remotePath: remotePathInput.value.trim() || '/home/Backup',
         allowInsecureSSL: allowInsecureSSLInput.checked
       },
       sync: {
-        localPath: localPathInput.value.trim(),
+        folders,
         intervalMinutes: parseInt(syncIntervalSelect.value, 10) || 0,
         realtimeSync: realtimeSyncInput.checked
       }
@@ -158,11 +253,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       progressPercent.textContent = `${progress.percent}%`;
     }
     if (progress.currentFile) {
-      progressCurrentFile.textContent = `전송 중: ${progress.currentFile} (${progress.completed}/${progress.total})`;
+      progressCurrentFile.textContent = `진행 중: ${progress.currentFile} (${progress.completed}/${progress.total})`;
     }
     if (progress.status === 'completed') {
       setStatus('동기화 완료', 'success');
-      progressCurrentFile.textContent = `완료됨 (${progress.completed}개 업로드)`;
+      progressCurrentFile.textContent = `완료됨 (${progress.completed}건 처리)`;
       btnStartSync.disabled = false;
       setTimeout(() => setStatus('대기 중'), 5000);
     }

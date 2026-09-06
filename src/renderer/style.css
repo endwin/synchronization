@@ -323,3 +323,91 @@ input:focus, select:focus {
   word-break: break-all;
 }
 .log-entry.system { color: #94a3b8; }
+
+/* Multi-folder UI Styles */
+.folders-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.folders-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.folder-row {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.folder-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.folder-enable-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.btn-danger-text {
+  background: none;
+  border: none;
+  color: var(--error);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn-danger-text:hover {
+  text-decoration: underline;
+}
+
+.folder-row-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.folder-row-body .form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.delete-remote-box {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 6px 10px;
+  background-color: #fffbeb;
+  border: 1px dashed #fde68a;
+  border-radius: 4px;
+}
+.delete-remote-box label {
+  color: #b45309;
+  font-size: 12px;
+}
+
+.no-folders-notice {
+  padding: 16px;
+  text-align: center;
+  background: #f8fafc;
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
