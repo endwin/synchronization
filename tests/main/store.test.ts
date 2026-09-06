@@ -23,17 +23,42 @@ describe('ConfigStore', () => {
     const config = store.get();
     expect(config.sync.intervalMinutes).toBe(30);
     expect(config.sync.realtimeSync).toBe(false);
+    expect(Array.isArray(config.sync.folders)).toBe(true);
+    expect(config.sync.folders.length).toBe(0);
   });
 
-  it('should persist modified configuration', () => {
+  it('should persist and manage multiple sync folders with deleteOnRemote flag', () => {
     const store = new ConfigStore(tempConfigFile);
     store.save({
-      sync: { localPath: 'C:/Backup', intervalMinutes: 60, realtimeSync: true }
+      sync: {
+        folders: [
+          { id: '1', localPath: 'C:/Folder1', remotePath: '/home/F1', deleteOnRemote: true, enabled: true },
+          { id: '2', localPath: 'C:/Folder2', remotePath: '/home/F2', deleteOnRemote: false, enabled: true }
+        ],
+        intervalMinutes: 60,
+        realtimeSync: true
+      }
     });
+
     const loaded = new ConfigStore(tempConfigFile).get();
-    expect(loaded.sync.localPath).toBe('C:/Backup');
-    expect(loaded.sync.intervalMinutes).toBe(60);
-    expect(loaded.sync.realtimeSync).toBe(true);
+    expect(loaded.sync.folders.length).toBe(2);
+    expect(loaded.sync.folders[0].deleteOnRemote).toBe(true);
+    expect(loaded.sync.folders[1].deleteOnRemote).toBe(false);
+  });
+
+  it('should migrate legacy single folder config to folders array', () => {
+    // Write legacy config
+    fs.writeFileSync(tempConfigFile, JSON.stringify({
+      nas: { url: 'https://nas.me', remotePath: '/home/OldRemote' },
+      sync: { localPath: 'C:/OldLocal', intervalMinutes: 15 }
+    }));
+
+    const store = new ConfigStore(tempConfigFile);
+    const config = store.get();
+    expect(config.sync.folders.length).toBe(1);
+    expect(config.sync.folders[0].localPath).toBe('C:/OldLocal');
+    expect(config.sync.folders[0].remotePath).toBe('/home/OldRemote');
+    expect(config.sync.folders[0].deleteOnRemote).toBe(false);
   });
 
   it('should encrypt password on disk and decrypt when retrieved', () => {
@@ -43,17 +68,14 @@ describe('ConfigStore', () => {
         url: 'https://nas.example.com',
         username: 'admin',
         password: 'mySecretPassword123!',
-        remotePath: '/home/Backup',
         allowInsecureSSL: true
       }
     });
 
-    // Check disk content: plain password MUST NOT exist in raw file
     const rawDiskContent = fs.readFileSync(tempConfigFile, 'utf-8');
     expect(rawDiskContent).not.toContain('mySecretPassword123!');
     expect(rawDiskContent).toContain('encryptedPassword');
 
-    // Check loaded config: password is properly decrypted in memory
     const loadedStore = new ConfigStore(tempConfigFile);
     expect(loadedStore.get().nas.password).toBe('mySecretPassword123!');
   });

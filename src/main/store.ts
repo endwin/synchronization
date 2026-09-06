@@ -2,18 +2,27 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
+export interface SyncFolderPair {
+  id: string;
+  localPath: string;
+  remotePath: string;
+  deleteOnRemote: boolean;
+  enabled: boolean;
+}
+
 export interface AppConfig {
   nas: {
     url: string;
     username: string;
     password: string;
-    remotePath: string;
     allowInsecureSSL: boolean;
+    remotePath?: string; // legacy support
   };
   sync: {
-    localPath: string;
+    folders: SyncFolderPair[];
     intervalMinutes: number;
     realtimeSync: boolean;
+    localPath?: string; // legacy support
   };
 }
 
@@ -23,11 +32,12 @@ interface StoredConfig {
     username: string;
     encryptedPassword?: string;
     password?: string; // for backward compatibility before migration
-    remotePath: string;
     allowInsecureSSL: boolean;
+    remotePath?: string;
   };
   sync: {
-    localPath: string;
+    folders?: SyncFolderPair[];
+    localPath?: string;
     intervalMinutes: number;
     realtimeSync: boolean;
   };
@@ -38,11 +48,10 @@ const DEFAULT_CONFIG: AppConfig = {
     url: 'https://',
     username: '',
     password: '',
-    remotePath: '/home/Backup',
     allowInsecureSSL: true,
   },
   sync: {
-    localPath: '',
+    folders: [],
     intervalMinutes: 30,
     realtimeSync: false,
   }
@@ -123,6 +132,20 @@ export class ConfigStore {
           password = parsed.nas.password;
         }
 
+        let folders: SyncFolderPair[] = [];
+        if (Array.isArray(parsed.sync?.folders)) {
+          folders = parsed.sync.folders;
+        } else if (parsed.sync?.localPath) {
+          // Migrate legacy single folder
+          folders = [{
+            id: 'default',
+            localPath: parsed.sync.localPath,
+            remotePath: parsed.nas?.remotePath || '/home/Backup',
+            deleteOnRemote: false,
+            enabled: true
+          }];
+        }
+
         return {
           nas: {
             ...DEFAULT_CONFIG.nas,
@@ -132,22 +155,55 @@ export class ConfigStore {
           sync: {
             ...DEFAULT_CONFIG.sync,
             ...(parsed.sync || {}),
+            folders,
             realtimeSync: parsed.sync?.realtimeSync ?? DEFAULT_CONFIG.sync.realtimeSync
           }
         };
       }
     } catch {}
-    return { ...DEFAULT_CONFIG };
+    return { ...DEFAULT_CONFIG, sync: { ...DEFAULT_CONFIG.sync, folders: [] } };
   }
 
   get(): AppConfig {
-    return { ...this.config };
+    return {
+      ...this.config,
+      sync: {
+        ...this.config.sync,
+        folders: [...this.config.sync.folders],
+        // backward compatibility getters
+        localPath: this.config.sync.folders[0]?.localPath || '',
+      },
+      nas: {
+        ...this.config.nas,
+        remotePath: this.config.sync.folders[0]?.remotePath || '/home/Backup',
+      }
+    };
   }
 
   save(newConfig: Partial<AppConfig>): void {
+    const existing = this.config;
+
+    let updatedFolders = existing.sync.folders;
+    if (newConfig.sync && 'folders' in newConfig.sync && Array.isArray(newConfig.sync.folders)) {
+      updatedFolders = newConfig.sync.folders;
+    } else if (newConfig.sync?.localPath) {
+      // Legacy single path update
+      updatedFolders = [{
+        id: existing.sync.folders[0]?.id || 'default',
+        localPath: newConfig.sync.localPath,
+        remotePath: newConfig.nas?.remotePath || existing.sync.folders[0]?.remotePath || '/home/Backup',
+        deleteOnRemote: existing.sync.folders[0]?.deleteOnRemote ?? false,
+        enabled: true
+      }];
+    }
+
     this.config = {
-      nas: { ...this.config.nas, ...(newConfig.nas || {}) },
-      sync: { ...this.config.sync, ...(newConfig.sync || {}) }
+      nas: { ...existing.nas, ...(newConfig.nas || {}) },
+      sync: {
+        ...existing.sync,
+        ...(newConfig.sync || {}),
+        folders: updatedFolders
+      }
     };
 
     const storedData: StoredConfig = {
@@ -155,11 +211,10 @@ export class ConfigStore {
         url: this.config.nas.url,
         username: this.config.nas.username,
         encryptedPassword: encryptSecret(this.config.nas.password),
-        remotePath: this.config.nas.remotePath,
         allowInsecureSSL: this.config.nas.allowInsecureSSL
       },
       sync: {
-        localPath: this.config.sync.localPath,
+        folders: this.config.sync.folders,
         intervalMinutes: this.config.sync.intervalMinutes,
         realtimeSync: this.config.sync.realtimeSync
       }
