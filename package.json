@@ -1,0 +1,21 @@
+{
+  "name": "synology-sync-manager",
+  "version": "1.0.0",
+  "description": "Desktop sync manager for Synology NAS using WebDAV",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "tsc && electron ."
+  },
+  "dependencies": {
+    "webdav": "^5.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^33.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
