@@ -1,6 +1,6 @@
 {
   "name": "koken-sync-manager",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Desktop sync manager (koken Sync Manager)",
   "author": "koken",
   "main": "dist/main/index.js",
