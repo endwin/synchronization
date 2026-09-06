@@ -307,6 +307,12 @@ input:focus, select:focus {
   align-items: center;
 }
 
+.logs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .log-console {
   background-color: #0f172a;
   color: #e2e8f0;

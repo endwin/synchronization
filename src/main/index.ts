@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as child_process from 'child_process';
 import { ConfigStore, SyncFolderPair } from './store';
 import { createSystemTray } from './tray';
+import { DailyLogger } from './logger';
 import { SynologyWebDAVClient } from '../sync/webdav-client';
 import { scanLocalDirectory } from '../sync/file-scanner';
 import { calculateSyncPlan } from '../sync/sync-engine';
@@ -29,11 +30,15 @@ if (!gotTheLock) {
 
   const configPath = path.join(app.getPath('userData'), 'config.json');
   const store = new ConfigStore(configPath);
+  const logsDir = path.join(app.getPath('userData'), 'logs');
+  const dailyLogger = new DailyLogger(logsDir);
 
   function sendLog(msg: string) {
-    const time = new Date().toLocaleTimeString();
+    const now = new Date();
+    const time = now.toLocaleTimeString();
     const formatted = `[${time}] ${msg}`;
     console.log(formatted);
+    dailyLogger.write(msg, now);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('sync-log', formatted);
     }
@@ -261,6 +266,11 @@ if (!gotTheLock) {
 
     ipcMain.handle('start-sync', () => {
       executeSync();
+      return true;
+    });
+
+    ipcMain.handle('open-logs-folder', async () => {
+      await shell.openPath(dailyLogger.getLogsDir());
       return true;
     });
 

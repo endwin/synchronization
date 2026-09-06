@@ -268,6 +268,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     appendLog(msg);
   });
 
+  // Open logs folder
+  const btnOpenLogsFolder = document.getElementById('btnOpenLogsFolder');
+  if (btnOpenLogsFolder) {
+    btnOpenLogsFolder.addEventListener('click', async () => {
+      try {
+        await window.electronAPI.openLogsFolder();
+      } catch (err) {
+        appendLog(`[오류] 로그 폴더 열기 실패: ${err.message}`);
+      }
+    });
+  }
+
   // Clear logs
   btnClearLogs.addEventListener('click', () => {
     logConsole.innerHTML = '';
