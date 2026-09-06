@@ -75,6 +75,18 @@ export class SynologyWebDAVClient {
     await client.putFileContents(remotePath, readStream, { overwrite: true });
   }
 
+  async deleteFile(remotePath: string): Promise<void> {
+    const client = await this.clientPromise;
+    const cleanPath = remotePath.normalize('NFC').replace(/\\/g, '/');
+    try {
+      await client.deleteFile(cleanPath);
+    } catch (err: any) {
+      if (err?.status !== 404 && err?.response?.status !== 404) {
+        throw err;
+      }
+    }
+  }
+
   async listRemoteFiles(remoteBasePath: string): Promise<Map<string, RemoteFileStat>> {
     const client = await this.clientPromise;
     const fileMap = new Map<string, RemoteFileStat>();

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateSyncPlan } from '../../src/sync/sync-engine';
 
-describe('calculateSyncPlan (Safe Backup Rules)', () => {
+describe('calculateSyncPlan', () => {
   it('should identify new files for upload', () => {
     const local = new Map([
       ['new.txt', { relativePath: 'new.txt', size: 100, mtime: 1000 }]
@@ -41,13 +41,26 @@ describe('calculateSyncPlan (Safe Backup Rules)', () => {
     expect(plan[0].reason).toBe('identical');
   });
 
-  it('should never delete remote files not in local (Safe Backup)', () => {
+  it('should never delete remote files when deleteOnRemote is false (Safe Backup)', () => {
     const local = new Map();
     const remote = new Map([
       ['deleted_on_local.txt', { relativePath: 'deleted_on_local.txt', size: 100, mtime: 1000 }]
     ]);
 
-    const plan = calculateSyncPlan(local, remote);
-    expect(plan.length).toBe(0); // Nothing to upload, remote is safely preserved
+    const plan = calculateSyncPlan(local, remote, { deleteOnRemote: false });
+    expect(plan.length).toBe(0); // Nothing to upload or delete
+  });
+
+  it('should delete remote files when deleteOnRemote is true (Mirror Deletion)', () => {
+    const local = new Map();
+    const remote = new Map([
+      ['deleted_on_local.txt', { relativePath: 'deleted_on_local.txt', size: 100, mtime: 1000 }]
+    ]);
+
+    const plan = calculateSyncPlan(local, remote, { deleteOnRemote: true });
+    expect(plan.length).toBe(1);
+    expect(plan[0].action).toBe('delete');
+    expect(plan[0].reason).toBe('deleted_on_local');
+    expect(plan[0].relativePath).toBe('deleted_on_local.txt');
   });
 });

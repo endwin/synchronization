@@ -10,6 +10,7 @@ describe('SynologyWebDAVClient', () => {
       allowInsecureSSL: true
     });
     expect(client).toBeDefined();
+    expect(typeof client.deleteFile).toBe('function');
   });
 
   it('should handle testConnection failure gracefully', async () => {

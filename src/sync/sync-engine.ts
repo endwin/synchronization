@@ -1,18 +1,23 @@
 import { ScannedFile } from './file-scanner';
 import { RemoteFileStat } from './webdav-client';
 
-export type SyncAction = 'upload' | 'skip';
+export type SyncAction = 'upload' | 'skip' | 'delete';
 export interface SyncItem {
   relativePath: string;
   action: SyncAction;
-  reason: 'new' | 'modified_size' | 'modified_mtime' | 'identical';
+  reason: 'new' | 'modified_size' | 'modified_mtime' | 'identical' | 'deleted_on_local';
   localSize: number;
   localMtime: number;
 }
 
+export interface SyncPlanOptions {
+  deleteOnRemote?: boolean;
+}
+
 export function calculateSyncPlan(
   localFiles: Map<string, ScannedFile>,
-  remoteFiles: Map<string, RemoteFileStat>
+  remoteFiles: Map<string, RemoteFileStat>,
+  options?: SyncPlanOptions
 ): SyncItem[] {
   const plan: SyncItem[] = [];
 
@@ -51,6 +56,20 @@ export function calculateSyncPlan(
         localSize: local.size,
         localMtime: local.mtime
       });
+    }
+  }
+
+  if (options?.deleteOnRemote) {
+    for (const [relPath] of remoteFiles) {
+      if (!localFiles.has(relPath)) {
+        plan.push({
+          relativePath: relPath,
+          action: 'delete',
+          reason: 'deleted_on_local',
+          localSize: 0,
+          localMtime: 0
+        });
+      }
     }
   }
 
