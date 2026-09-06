@@ -129,13 +129,16 @@
             </select>
           </div>
           <div class="form-group full-width" id="urlGroup">
-            <label for="nasUrl" id="lblNasUrl">서버 주소 / 호스트</label>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+              <label for="nasUrl" id="lblNasUrl" style="margin-bottom: 0;">서버 주소 / 호스트</label>
+              <label for="nasPort" style="font-size: 12px; font-weight: normal; color: var(--text-secondary); margin-bottom: 0;">포트 (자동설정 / 직접 수정 가능)</label>
+            </div>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="nasUrl" style="flex: 1;" placeholder="https://my-nas.synology.me:5006" />
-              <input type="number" id="nasPort" style="width: 90px;" placeholder="포트" min="1" max="65535" />
+              <input type="number" id="nasPort" style="width: 105px;" value="5006" placeholder="5006" min="1" max="65535" title="서버 포트 번호 (프로토콜 선택 시 자동 변경되며 직접 수정할 수도 있습니다)" />
             </div>
             <small id="nasUrlHint" style="color: var(--text-secondary); font-size: 11px; margin-top: 4px; display: block;">
-              예: https://my-nas.synology.me:5006 또는 http://192.168.0.10:5005
+              예: https://my-nas.synology.me 또는 http://192.168.0.10:5005 (기본 포트: 5006)
             </small>
           </div>
           <div class="form-group">

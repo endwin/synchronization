@@ -58,6 +58,7 @@ export function createRemoteClient(config: RemoteConnectionConfig): RemoteClient
     default:
       return new SynologyWebDAVClient({
         url: config.url,
+        port: config.port,
         username: config.username,
         password: config.password || '',
         allowInsecureSSL: config.allowInsecureSSL

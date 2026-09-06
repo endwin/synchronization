@@ -540,7 +540,8 @@ if (!gotTheLock) {
         password: nasCfg.password || store.get().nas.password
       };
       const proto = (effectiveNasCfg.protocol || 'webdav').toUpperCase();
-      sendLog(`원격 서버(${proto}) 연결 테스트 시도: ${effectiveNasCfg.url}`);
+      const portText = effectiveNasCfg.port ? ` [포트: ${effectiveNasCfg.port}]` : '';
+      sendLog(`원격 서버(${proto}) 연결 테스트 시도: ${effectiveNasCfg.url}${portText}`);
       let client: RemoteClient | null = null;
       try {
         client = createRemoteClient(effectiveNasCfg);

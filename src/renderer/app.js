@@ -194,35 +194,67 @@ document.addEventListener('DOMContentLoaded', async () => {
     createFolderRow();
   });
 
-  function updateProtocolUI(protocol) {
+  const DEFAULT_PORTS = {
+    webdav: 5006,
+    smb: 445,
+    ftp: 21,
+    ftps: 21
+  };
+
+  function updateProtocolUI(protocol, isUserChange = false) {
+    const defaultPort = DEFAULT_PORTS[protocol] || 5006;
+
     switch (protocol) {
       case 'smb':
         if (lblNasUrl) lblNasUrl.textContent = 'Samba (SMB) 공유 주소 또는 서버 IP';
         if (nasUrlInput) nasUrlInput.placeholder = '\\\\192.168.0.10\\share 또는 192.168.0.10';
-        if (nasPortInput) nasPortInput.placeholder = '445';
-        if (nasUrlHint) nasUrlHint.textContent = '예: \\\\192.168.0.10\\share 또는 192.168.0.10 (Windows UNC 경로)';
+        if (nasPortInput) {
+          nasPortInput.placeholder = defaultPort.toString();
+          if (isUserChange || !nasPortInput.value) {
+            nasPortInput.value = defaultPort.toString();
+          }
+        }
+        if (nasUrlHint) nasUrlHint.textContent = '예: \\\\192.168.0.10\\share 또는 192.168.0.10 (기본 포트: 445)';
         if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'none';
         break;
+
       case 'ftp':
         if (lblNasUrl) lblNasUrl.textContent = 'FTP 서버 호스트 / IP';
         if (nasUrlInput) nasUrlInput.placeholder = 'ftp.example.com 또는 192.168.0.10';
-        if (nasPortInput) nasPortInput.placeholder = '21';
+        if (nasPortInput) {
+          nasPortInput.placeholder = defaultPort.toString();
+          if (isUserChange || !nasPortInput.value) {
+            nasPortInput.value = defaultPort.toString();
+          }
+        }
         if (nasUrlHint) nasUrlHint.textContent = '예: 192.168.0.10 또는 ftp.example.com (기본 포트: 21)';
         if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'none';
         break;
+
       case 'ftps':
         if (lblNasUrl) lblNasUrl.textContent = 'FTPS 서버 호스트 / IP';
         if (nasUrlInput) nasUrlInput.placeholder = 'ftps.example.com 또는 192.168.0.10';
-        if (nasPortInput) nasPortInput.placeholder = '21';
-        if (nasUrlHint) nasUrlHint.textContent = '예: 192.168.0.10 또는 ftps.example.com (TLS 보안 암호화)';
+        if (nasPortInput) {
+          nasPortInput.placeholder = defaultPort.toString();
+          if (isUserChange || !nasPortInput.value) {
+            nasPortInput.value = defaultPort.toString();
+          }
+        }
+        if (nasUrlHint) nasUrlHint.textContent = '예: 192.168.0.10 또는 ftps.example.com (TLS 보안 암호화, 기본 포트: 21 / 990)';
         if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'block';
         break;
+
       case 'webdav':
       default:
         if (lblNasUrl) lblNasUrl.textContent = 'WebDAV 서버 주소 (URL)';
         if (nasUrlInput) nasUrlInput.placeholder = 'https://my-nas.synology.me:5006';
-        if (nasPortInput) nasPortInput.placeholder = '5006';
-        if (nasUrlHint) nasUrlHint.textContent = '예: https://my-nas.synology.me:5006 또는 http://192.168.0.10:5005';
+        if (nasPortInput) {
+          nasPortInput.placeholder = defaultPort.toString();
+          if (isUserChange || !nasPortInput.value) {
+            nasPortInput.value = defaultPort.toString();
+          }
+        }
+        if (nasUrlHint) nasUrlHint.textContent = '예: https://my-nas.synology.me 또는 http://192.168.0.10:5005 (기본 포트: 5006)';
         if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'block';
         break;
     }
@@ -231,9 +263,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (connectionProtocolSelect) {
     connectionProtocolSelect.addEventListener('change', () => {
       const proto = connectionProtocolSelect.value;
-      updateProtocolUI(proto);
+      updateProtocolUI(proto, true);
       const label = connectionProtocolSelect.options[connectionProtocolSelect.selectedIndex].text;
-      logAction(`🌐 [설정] 원격 접속 프로토콜 변경: ${label}`);
+      const port = nasPortInput ? nasPortInput.value : '';
+      logAction(`🌐 [설정] 원격 접속 프로토콜 변경: ${label} (포트: ${port})`);
+    });
+  }
+
+  if (nasPortInput) {
+    nasPortInput.addEventListener('change', () => {
+      const val = nasPortInput.value.trim();
+      logAction(`🌐 [설정] 포트 번호 직접 변경: ${val}`);
     });
   }
 
@@ -242,14 +282,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const config = await window.electronAPI.getConfig();
     if (config) {
       if (config.nas) {
+        const proto = config.nas.protocol || 'webdav';
         if (connectionProtocolSelect) {
-          connectionProtocolSelect.value = config.nas.protocol || 'webdav';
-          updateProtocolUI(connectionProtocolSelect.value);
+          connectionProtocolSelect.value = proto;
         }
-        nasUrlInput.value = config.nas.url || '';
         if (nasPortInput) {
-          nasPortInput.value = config.nas.port ? config.nas.port.toString() : '';
+          if (config.nas.port) {
+            nasPortInput.value = config.nas.port.toString();
+          } else {
+            nasPortInput.value = (DEFAULT_PORTS[proto] || 5006).toString();
+          }
         }
+        updateProtocolUI(proto, false);
+        nasUrlInput.value = config.nas.url || '';
         nasUsernameInput.value = config.nas.username || '';
         nasPasswordInput.value = config.nas.password || '';
         allowInsecureSSLInput.checked = config.nas.allowInsecureSSL !== false;
@@ -282,10 +327,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnTestConnection.disabled = true;
 
     try {
+      const proto = connectionProtocolSelect ? connectionProtocolSelect.value : 'webdav';
+      let portVal = nasPortInput && nasPortInput.value ? parseInt(nasPortInput.value.trim(), 10) : undefined;
+      if (portVal === undefined || isNaN(portVal) || portVal <= 0) {
+        portVal = DEFAULT_PORTS[proto] || 5006;
+      }
+
       const nasConfig = {
-        protocol: connectionProtocolSelect ? connectionProtocolSelect.value : 'webdav',
+        protocol: proto,
         url: nasUrlInput.value.trim(),
-        port: nasPortInput && nasPortInput.value ? parseInt(nasPortInput.value, 10) : undefined,
+        port: portVal,
         username: nasUsernameInput.value.trim(),
         password: nasPasswordInput.value.trim(),
         allowInsecureSSL: allowInsecureSSLInput.checked
@@ -368,11 +419,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
+    const proto = connectionProtocolSelect ? connectionProtocolSelect.value : 'webdav';
+    let portVal = nasPortInput && nasPortInput.value ? parseInt(nasPortInput.value.trim(), 10) : undefined;
+    if (portVal === undefined || isNaN(portVal) || portVal <= 0) {
+      portVal = DEFAULT_PORTS[proto] || 5006;
+    }
+
     return {
       nas: {
-        protocol: connectionProtocolSelect ? connectionProtocolSelect.value : 'webdav',
+        protocol: proto,
         url: nasUrlInput.value.trim(),
-        port: nasPortInput && nasPortInput.value ? parseInt(nasPortInput.value, 10) : undefined,
+        port: portVal,
         username: nasUsernameInput.value.trim(),
         password: nasPasswordInput.value.trim(),
         allowInsecureSSL: allowInsecureSSLInput.checked
@@ -449,10 +506,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Reset UI fields
         if (connectionProtocolSelect) {
           connectionProtocolSelect.value = 'webdav';
-          updateProtocolUI('webdav');
+          updateProtocolUI('webdav', true);
         }
         nasUrlInput.value = '';
-        if (nasPortInput) nasPortInput.value = '';
+        if (nasPortInput) nasPortInput.value = '5006';
         nasUsernameInput.value = '';
         nasPasswordInput.value = '';
         allowInsecureSSLInput.checked = true;

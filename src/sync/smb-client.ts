@@ -19,6 +19,8 @@ export class SambaClientWrapper implements RemoteClient {
     if (!clean.startsWith('\\\\')) {
       clean = '\\\\' + clean.replace(/^\\+/, '');
     }
+    // Clean any accidental port syntax in UNC path (e.g. \\192.168.0.10:445\share -> \\192.168.0.10\share)
+    clean = clean.replace(/^(\\\\[^\\]+)(?::\d+)(\\.*)?$/, '$1$2');
     return clean.replace(/\\+$/, '');
   }
 

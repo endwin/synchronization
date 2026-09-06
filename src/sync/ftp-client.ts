@@ -14,7 +14,7 @@ export class FtpClientWrapper implements RemoteClient {
   private parseHostAndPort(): { host: string; port: number } {
     let clean = (this.config.url || '').trim().replace(/^ftps?:\/\//i, '');
     let host = clean;
-    let port = this.config.port;
+    let port = this.config.port ? Number(this.config.port) : undefined;
 
     if (clean.includes('/')) {
       host = clean.split('/')[0];
@@ -22,7 +22,7 @@ export class FtpClientWrapper implements RemoteClient {
     if (host.includes(':')) {
       const parts = host.split(':');
       host = parts[0];
-      if (!port && parts[1]) {
+      if ((!port || isNaN(port)) && parts[1]) {
         port = parseInt(parts[1], 10);
       }
     }

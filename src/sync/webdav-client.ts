@@ -10,9 +10,37 @@ export interface RemoteFileStat {
 
 export interface SynologyWebDAVConfig {
   url: string;
+  port?: number;
   username: string;
   password: string;
   allowInsecureSSL?: boolean;
+}
+
+export function buildWebDavUrl(rawUrl: string, port?: number): string {
+  let clean = (rawUrl || '').trim();
+  if (!clean) return '';
+
+  // Prepend protocol scheme if missing
+  if (!/^https?:\/\//i.test(clean)) {
+    const isHttps = !port || port === 5006 || port === 443;
+    clean = `${isHttps ? 'https' : 'http'}://${clean}`;
+  }
+
+  try {
+    const parsed = new URL(clean);
+    if (port && !isNaN(port)) {
+      parsed.port = port.toString();
+    }
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    if (port && !isNaN(port)) {
+      const match = clean.match(/^((?:https?:\/\/)?(?:[a-zA-Z0-9.\-_]+))(?::\d+)?(.*)$/);
+      if (match) {
+        return `${match[1]}:${port}${match[2] || ''}`.replace(/\/+$/, '');
+      }
+    }
+    return clean.replace(/\/+$/, '');
+  }
 }
 
 const getWebDAVModule = async (): Promise<any> => {
@@ -25,8 +53,11 @@ const getWebDAVModule = async (): Promise<any> => {
 
 export class SynologyWebDAVClient {
   private clientPromise: Promise<WebDAVClient>;
+  public effectiveUrl: string;
 
   constructor(config: SynologyWebDAVConfig) {
+    const effectiveUrl = buildWebDavUrl(config.url, config.port);
+    this.effectiveUrl = effectiveUrl;
     this.clientPromise = (async () => {
       const { createClient } = await getWebDAVModule();
       const options: any = {
@@ -36,7 +67,7 @@ export class SynologyWebDAVClient {
       if (config.allowInsecureSSL) {
         options.httpsAgent = new https.Agent({ rejectUnauthorized: false });
       }
-      return createClient(config.url, options);
+      return createClient(effectiveUrl, options);
     })();
   }
 
