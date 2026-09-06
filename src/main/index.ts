@@ -50,8 +50,8 @@ if (!gotTheLock) {
 
   const configPath = path.join(app.getPath('userData'), 'config.json');
   const store = new ConfigStore(configPath);
-  const projectRoot = app.getAppPath() || process.cwd();
-  const logsDir = path.join(projectRoot, 'logs');
+  const baseDir = app.isPackaged ? path.dirname(process.execPath) : (app.getAppPath() || process.cwd());
+  const logsDir = path.join(baseDir, 'logs');
   const dailyLogger = new DailyLogger(logsDir);
   const statePath = path.join(app.getPath('userData'), 'sync-state.json');
   const syncStateManager = new SyncStateManager(statePath);
@@ -296,7 +296,8 @@ if (!gotTheLock) {
     const iconCandidates = [
       path.join(__dirname, '../../assets/icon.png'),
       path.join(__dirname, '../assets/icon.png'),
-      path.join(app.getAppPath(), 'assets/icon.png')
+      path.join(app.getAppPath(), 'assets/icon.png'),
+      path.join(app.getAppPath(), 'dist/assets/icon.png')
     ];
     const iconPath = iconCandidates.find(p => fs.existsSync(p)) || iconCandidates[0];
 
@@ -319,7 +320,8 @@ if (!gotTheLock) {
 
     const rendererPathCandidates = [
       path.join(__dirname, '../renderer/index.html'),
-      path.join(__dirname, '../../src/renderer/index.html')
+      path.join(__dirname, '../../src/renderer/index.html'),
+      path.join(app.getAppPath(), 'dist/renderer/index.html')
     ];
     const targetHtml = rendererPathCandidates.find(p => fs.existsSync(p)) || rendererPathCandidates[0];
     mainWindow.loadFile(targetHtml);

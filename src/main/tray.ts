@@ -6,7 +6,8 @@ export function createSystemTray(mainWindow: BrowserWindow, onSyncNow: () => voi
   const iconCandidates = [
     path.join(__dirname, '../../assets/icon.png'),
     path.join(__dirname, '../assets/icon.png'),
-    path.join(app.getAppPath(), 'assets/icon.png')
+    path.join(app.getAppPath(), 'assets/icon.png'),
+    path.join(app.getAppPath(), 'dist/assets/icon.png')
   ];
   const iconPath = iconCandidates.find(p => fs.existsSync(p)) || iconCandidates[0];
 

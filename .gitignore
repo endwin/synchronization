@@ -6,3 +6,4 @@ logs/
 .DS_Store
 Thumbs.db
 config.json
+release/

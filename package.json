@@ -2,9 +2,12 @@
   "name": "synology-sync-manager",
   "version": "1.0.0",
   "description": "Desktop sync manager for Synology NAS using WebDAV",
+  "author": "Synology Sync Manager",
   "main": "dist/main/index.js",
   "scripts": {
     "build": "tsc && node -e \"require('fs').cpSync('src/renderer', 'dist/renderer', {recursive: true}); require('fs').cpSync('assets', 'dist/assets', {recursive: true})\"",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "chcp 65001 >nul && tsc && electron ."
@@ -15,6 +18,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }
