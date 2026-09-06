@@ -342,11 +342,75 @@ if (!gotTheLock) {
     updateWatcherState();
   }
 
+  function getEffectiveExePath(): string {
+    if (process.env.PORTABLE_EXECUTABLE_FILE) {
+      return process.env.PORTABLE_EXECUTABLE_FILE;
+    }
+    return process.execPath;
+  }
+
+  function isAutoStartEnabled(): boolean {
+    if (process.platform === 'win32') {
+      try {
+        child_process.execFileSync('reg.exe', [
+          'query',
+          'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+          '/v',
+          'SynologySyncManager'
+        ], { stdio: 'ignore' });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    try {
+      const exePath = getEffectiveExePath();
+      return Boolean(app.getLoginItemSettings({ path: exePath }).openAtLogin);
+    } catch {
+      return false;
+    }
+  }
+
   function updateAutoStartSetting(enable: boolean) {
+    const exePath = getEffectiveExePath();
+
+    if (process.platform === 'win32') {
+      try {
+        if (enable) {
+          child_process.execFileSync('reg.exe', [
+            'add',
+            'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+            '/v',
+            'SynologySyncManager',
+            '/t',
+            'REG_SZ',
+            '/d',
+            `"${exePath}" --hidden`,
+            '/f'
+          ]);
+          sendLog(`🚀 Windows 시작 프로그램에 등록되었습니다. (경로: ${path.basename(exePath)})`);
+        } else {
+          try {
+            child_process.execFileSync('reg.exe', [
+              'delete',
+              'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+              '/v',
+              'SynologySyncManager',
+              '/f'
+            ], { stdio: 'ignore' });
+          } catch {}
+          sendLog('🚀 Windows 시작 프로그램 등록이 해제되었습니다.');
+        }
+      } catch (err) {
+        console.error('Failed to update Windows registry Run key:', err);
+      }
+    }
+
     try {
       app.setLoginItemSettings({
         openAtLogin: enable,
         openAsHidden: true,
+        path: exePath,
         args: ['--hidden']
       });
     } catch (err) {
@@ -373,7 +437,7 @@ if (!gotTheLock) {
     ipcMain.handle('get-config', () => {
       const current = store.get();
       try {
-        current.sync.autoStart = app.getLoginItemSettings().openAtLogin;
+        current.sync.autoStart = isAutoStartEnabled();
       } catch {}
       return current;
     });

@@ -13,14 +13,21 @@
   "win": {
     "target": [
       {
-        "target": "dir",
+        "target": "portable",
         "arch": ["x64"]
       },
       {
-        "target": "portable",
+        "target": "nsis",
         "arch": ["x64"]
       }
     ],
     "icon": "assets/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "shortcutName": "Synology Sync Manager",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
   }
 }

@@ -256,19 +256,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     logAction(`🌐 [체크박스] 자체 서명(사설) SSL 인증서: ${status}`);
   });
 
-  realtimeSyncInput.addEventListener('change', () => {
+  realtimeSyncInput.addEventListener('change', async () => {
     const status = realtimeSyncInput.checked ? '활성화 (로컬 변경 시 즉시 동기화)' : '비활성화 (주기/수동 동기화만 동작)';
     logAction(`⚡ [체크박스] 실시간 파일 감지 및 자동 동기화: ${status}`);
+    try {
+      await window.electronAPI.saveConfig(collectConfig());
+    } catch (err) {
+      appendLog(`[오류] 실시간 동기화 설정 저장 실패: ${err.message}`);
+    }
   });
 
-  autoStartInput.addEventListener('change', () => {
+  autoStartInput.addEventListener('change', async () => {
     const status = autoStartInput.checked ? '활성화 (Windows 시작 시 백그라운드 자동 실행)' : '비활성화 (수동 실행)';
     logAction(`🚀 [체크박스] Windows 시작 시 자동 실행: ${status}`);
+    try {
+      await window.electronAPI.saveConfig(collectConfig());
+    } catch (err) {
+      appendLog(`[오류] 시작 프로그램 설정 저장 실패: ${err.message}`);
+    }
   });
 
-  syncIntervalSelect.addEventListener('change', () => {
+  syncIntervalSelect.addEventListener('change', async () => {
     const label = syncIntervalSelect.options[syncIntervalSelect.selectedIndex].text;
     logAction(`⏱️ [설정] 자동 동기화 주기: ${label}`);
+    try {
+      await window.electronAPI.saveConfig(collectConfig());
+    } catch (err) {
+      appendLog(`[오류] 동기화 주기 저장 실패: ${err.message}`);
+    }
   });
 
   // Save config helper
