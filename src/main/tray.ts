@@ -25,7 +25,7 @@ export function createSystemTray(mainWindow: BrowserWindow, onSyncNow: () => voi
     { label: '종료', click: () => { (app as any).isQuitting = true; app.quit(); } }
   ]);
 
-  tray.setToolTip('Synology Sync Manager');
+  tray.setToolTip('koken Sync Manager');
   tray.setContextMenu(contextMenu);
   tray.on('double-click', () => {
     mainWindow.show();

@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.synology.syncmanager",
-  "productName": "Synology Sync Manager",
+  "appId": "com.koken.syncmanager",
+  "productName": "koken Sync Manager",
   "directories": {
     "output": "release"
   },
@@ -26,7 +26,7 @@
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
-    "shortcutName": "Synology Sync Manager",
+    "shortcutName": "koken Sync Manager",
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true
   }

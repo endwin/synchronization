@@ -1,9 +1,14 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  // NAS Elements
+  // Remote Connection Elements
+  const connectionProtocolSelect = document.getElementById('connectionProtocol');
   const nasUrlInput = document.getElementById('nasUrl');
+  const nasPortInput = document.getElementById('nasPort');
+  const lblNasUrl = document.getElementById('lblNasUrl');
+  const nasUrlHint = document.getElementById('nasUrlHint');
   const nasUsernameInput = document.getElementById('nasUsername');
   const nasPasswordInput = document.getElementById('nasPassword');
   const allowInsecureSSLInput = document.getElementById('allowInsecureSSL');
+  const sslCheckboxGroup = document.getElementById('sslCheckboxGroup');
   const btnTestConnection = document.getElementById('btnTestConnection');
   const testResultMsg = document.getElementById('testResultMsg');
 
@@ -94,19 +99,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
         <div class="form-group">
-          <label>NAS 원격 저장 폴더</label>
+          <label>원격 저장 폴더 (NAS / 서버)</label>
           <input type="text" class="folder-remote-path" value="${remotePath}" placeholder="/Backup" />
         </div>
         <div class="form-group checkbox-group delete-remote-box">
           <label>
             <input type="checkbox" class="folder-delete-remote" ${deleteOnRemote ? 'checked' : ''} />
-            ⚠️ <strong>로컬에서 삭제 시 NAS 백업 파일도 함께 삭제</strong> (원격 삭제 동기화)
+            ⚠️ <strong>로컬에서 삭제 시 원격 백업 파일도 함께 삭제</strong> (원격 삭제 미러링)
           </label>
         </div>
         <div class="form-group checkbox-group delete-local-box">
           <label>
             <input type="checkbox" class="folder-delete-local" ${deleteOnLocal ? 'checked' : ''} />
-            ⚠️ <strong>백업 폴더(NAS)에서 삭제 시 로컬 폴더 및 파일도 함께 삭제</strong> (로컬 삭제 동기화)
+            ⚠️ <strong>원격 백업 폴더에서 삭제 시 로컬 폴더 및 파일도 함께 삭제</strong> (로컬 삭제 미러링)
           </label>
         </div>
       </div>
@@ -162,13 +167,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     chkDeleteRemote.addEventListener('change', () => {
       const folderPath = localInput.value.trim() || '지정되지 않은 폴더';
-      const status = chkDeleteRemote.checked ? '활성화 (로컬 파일 삭제 시 NAS 백업 파일도 함께 삭제)' : '비활성화 (로컬에서 삭제해도 NAS 파일 유지)';
+      const status = chkDeleteRemote.checked ? '활성화 (로컬 파일 삭제 시 원격 백업 파일도 함께 삭제)' : '비활성화 (로컬에서 삭제해도 원격 파일 유지)';
       logAction(`🗑️ [폴더 체크박스] [${folderPath}] 원격 삭제 미러링: ${status}`);
     });
 
     chkDeleteLocal.addEventListener('change', () => {
       const folderPath = localInput.value.trim() || '지정되지 않은 폴더';
-      const status = chkDeleteLocal.checked ? '활성화 (NAS 백업 삭제 시 로컬 폴더/파일도 함께 삭제)' : '비활성화 (NAS에서 삭제해도 로컬 파일 유지)';
+      const status = chkDeleteLocal.checked ? '활성화 (원격 백업 삭제 시 로컬 폴더/파일도 함께 삭제)' : '비활성화 (원격에서 삭제해도 로컬 파일 유지)';
       logAction(`🗑️ [폴더 체크박스] [${folderPath}] 로컬 삭제 미러링: ${status}`);
     });
 
@@ -189,12 +194,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     createFolderRow();
   });
 
+  function updateProtocolUI(protocol) {
+    switch (protocol) {
+      case 'smb':
+        if (lblNasUrl) lblNasUrl.textContent = 'Samba (SMB) 공유 주소 또는 서버 IP';
+        if (nasUrlInput) nasUrlInput.placeholder = '\\\\192.168.0.10\\share 또는 192.168.0.10';
+        if (nasPortInput) nasPortInput.placeholder = '445';
+        if (nasUrlHint) nasUrlHint.textContent = '예: \\\\192.168.0.10\\share 또는 192.168.0.10 (Windows UNC 경로)';
+        if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'none';
+        break;
+      case 'ftp':
+        if (lblNasUrl) lblNasUrl.textContent = 'FTP 서버 호스트 / IP';
+        if (nasUrlInput) nasUrlInput.placeholder = 'ftp.example.com 또는 192.168.0.10';
+        if (nasPortInput) nasPortInput.placeholder = '21';
+        if (nasUrlHint) nasUrlHint.textContent = '예: 192.168.0.10 또는 ftp.example.com (기본 포트: 21)';
+        if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'none';
+        break;
+      case 'ftps':
+        if (lblNasUrl) lblNasUrl.textContent = 'FTPS 서버 호스트 / IP';
+        if (nasUrlInput) nasUrlInput.placeholder = 'ftps.example.com 또는 192.168.0.10';
+        if (nasPortInput) nasPortInput.placeholder = '21';
+        if (nasUrlHint) nasUrlHint.textContent = '예: 192.168.0.10 또는 ftps.example.com (TLS 보안 암호화)';
+        if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'block';
+        break;
+      case 'webdav':
+      default:
+        if (lblNasUrl) lblNasUrl.textContent = 'WebDAV 서버 주소 (URL)';
+        if (nasUrlInput) nasUrlInput.placeholder = 'https://my-nas.synology.me:5006';
+        if (nasPortInput) nasPortInput.placeholder = '5006';
+        if (nasUrlHint) nasUrlHint.textContent = '예: https://my-nas.synology.me:5006 또는 http://192.168.0.10:5005';
+        if (sslCheckboxGroup) sslCheckboxGroup.style.display = 'block';
+        break;
+    }
+  }
+
+  if (connectionProtocolSelect) {
+    connectionProtocolSelect.addEventListener('change', () => {
+      const proto = connectionProtocolSelect.value;
+      updateProtocolUI(proto);
+      const label = connectionProtocolSelect.options[connectionProtocolSelect.selectedIndex].text;
+      logAction(`🌐 [설정] 원격 접속 프로토콜 변경: ${label}`);
+    });
+  }
+
   // Load initial config
   try {
     const config = await window.electronAPI.getConfig();
     if (config) {
       if (config.nas) {
+        if (connectionProtocolSelect) {
+          connectionProtocolSelect.value = config.nas.protocol || 'webdav';
+          updateProtocolUI(connectionProtocolSelect.value);
+        }
         nasUrlInput.value = config.nas.url || '';
+        if (nasPortInput) {
+          nasPortInput.value = config.nas.port ? config.nas.port.toString() : '';
+        }
         nasUsernameInput.value = config.nas.username || '';
         nasPasswordInput.value = config.nas.password || '';
         allowInsecureSSLInput.checked = config.nas.allowInsecureSSL !== false;
@@ -228,7 +283,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       const nasConfig = {
+        protocol: connectionProtocolSelect ? connectionProtocolSelect.value : 'webdav',
         url: nasUrlInput.value.trim(),
+        port: nasPortInput && nasPortInput.value ? parseInt(nasPortInput.value, 10) : undefined,
         username: nasUsernameInput.value.trim(),
         password: nasPasswordInput.value.trim(),
         allowInsecureSSL: allowInsecureSSLInput.checked
@@ -313,7 +370,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     return {
       nas: {
+        protocol: connectionProtocolSelect ? connectionProtocolSelect.value : 'webdav',
         url: nasUrlInput.value.trim(),
+        port: nasPortInput && nasPortInput.value ? parseInt(nasPortInput.value, 10) : undefined,
         username: nasUsernameInput.value.trim(),
         password: nasPasswordInput.value.trim(),
         allowInsecureSSL: allowInsecureSSLInput.checked
@@ -357,7 +416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       setTimeout(() => setStatus('대기 중'), 3000);
       closeNasModal();
     } catch (err) {
-      appendLog(`[오류] NAS 설정 저장 실패: ${err.message}`);
+      appendLog(`[오류] 연결 설정 저장 실패: ${err.message}`);
     } finally {
       btnSaveNasModal.disabled = false;
     }
@@ -380,7 +439,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Reset All Settings
   if (btnResetAll) {
     btnResetAll.addEventListener('click', async () => {
-      const ok = confirm('시놀로지 NAS 접속 정보 및 등록된 동기화 폴더 설정을 모두 초기화하시겠습니까?');
+      const ok = confirm('원격 서버 접속 정보 및 등록된 동기화 폴더 설정을 모두 초기화하시겠습니까?');
       if (!ok) return;
 
       try {
@@ -388,7 +447,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.electronAPI.resetAllSettings();
 
         // Reset UI fields
+        if (connectionProtocolSelect) {
+          connectionProtocolSelect.value = 'webdav';
+          updateProtocolUI('webdav');
+        }
         nasUrlInput.value = '';
+        if (nasPortInput) nasPortInput.value = '';
         nasUsernameInput.value = '';
         nasPasswordInput.value = '';
         allowInsecureSSLInput.checked = true;
@@ -402,7 +466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         setStatus('초기화 완료', 'success');
         setTimeout(() => setStatus('대기 중'), 3000);
-        appendLog('[시스템] 모든 설정(NAS 접속 정보, 동기화 폴더, 동기화 상태)이 성공적으로 초기화되었습니다.');
+        appendLog('[시스템] 모든 설정(연결 정보, 동기화 폴더, 동기화 상태)이 성공적으로 초기화되었습니다.');
       } catch (err) {
         appendLog(`[오류] 초기화 실패: ${err.message}`);
       } finally {

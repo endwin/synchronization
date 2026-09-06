@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Synology Sync Manager</title>
+  <title>koken Sync Manager</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,10 +12,10 @@
     <header class="header">
       <div class="logo-area">
         <span class="icon">☁️</span>
-        <h1>Synology Sync Manager</h1>
+        <h1>koken Sync Manager</h1>
       </div>
       <div class="header-right">
-        <button type="button" class="btn btn-secondary btn-sm" id="btnOpenNasModal">⚙️ 시놀로지 NAS 연결 설정</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnOpenNasModal">⚙️ 연결 설정</button>
         <button type="button" class="btn btn-secondary btn-sm" id="btnResetAll" title="모든 설정 및 동기화 정보 초기화">🔄 설정 초기화</button>
         <div class="status-badge" id="globalStatusBadge">대기 중</div>
       </div>
@@ -105,23 +105,38 @@
         </div>
         <div class="card-body">
           <div class="log-console" id="logConsole">
-            <div class="log-entry system">[시스템] Synology Sync Manager가 준비되었습니다.</div>
+            <div class="log-entry system">[시스템] koken Sync Manager가 준비되었습니다.</div>
           </div>
         </div>
       </section>
     </main>
 
-    <!-- Synology NAS Connection Modal -->
+    <!-- Connection Modal -->
     <div class="modal-overlay" id="nasModalOverlay" style="display: none;">
       <div class="modal-dialog">
         <div class="modal-header">
-          <h2>🌐 시놀로지 NAS 연결 설정</h2>
+          <h2>🌐 연결 설정</h2>
           <button type="button" class="modal-close-btn" id="btnCloseNasModal" aria-label="닫기">&times;</button>
         </div>
         <div class="modal-body form-group-grid">
           <div class="form-group full-width">
-            <label for="nasUrl">WebDAV 서버 주소 (HTTPS 권장)</label>
-            <input type="text" id="nasUrl" placeholder="https://my-nas.synology.me:5006" />
+            <label for="connectionProtocol">원격 접속 프로토콜</label>
+            <select id="connectionProtocol">
+              <option value="webdav" selected>WebDAV (기본 / Synology, Nextcloud 등)</option>
+              <option value="smb">Samba / SMB (Windows 네트워크 공유 폴더)</option>
+              <option value="ftp">FTP (표준 파일 전송)</option>
+              <option value="ftps">FTPS (보안 파일 전송 / TLS)</option>
+            </select>
+          </div>
+          <div class="form-group full-width" id="urlGroup">
+            <label for="nasUrl" id="lblNasUrl">서버 주소 / 호스트</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="nasUrl" style="flex: 1;" placeholder="https://my-nas.synology.me:5006" />
+              <input type="number" id="nasPort" style="width: 90px;" placeholder="포트" min="1" max="65535" />
+            </div>
+            <small id="nasUrlHint" style="color: var(--text-secondary); font-size: 11px; margin-top: 4px; display: block;">
+              예: https://my-nas.synology.me:5006 또는 http://192.168.0.10:5005
+            </small>
           </div>
           <div class="form-group">
             <label for="nasUsername">아이디</label>
@@ -131,7 +146,7 @@
             <label for="nasPassword">비밀번호</label>
             <input type="password" id="nasPassword" placeholder="••••••••" />
           </div>
-          <div class="form-group full-width checkbox-group">
+          <div class="form-group full-width checkbox-group" id="sslCheckboxGroup">
             <label>
               <input type="checkbox" id="allowInsecureSSL" checked />
               자체 서명(사설) SSL 인증서 허용 (SSL 검증 오류 방지)

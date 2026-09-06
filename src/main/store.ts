@@ -11,9 +11,13 @@ export interface SyncFolderPair {
   enabled: boolean;
 }
 
+export type RemoteProtocol = 'webdav' | 'smb' | 'ftp' | 'ftps';
+
 export interface AppConfig {
   nas: {
+    protocol?: RemoteProtocol;
     url: string;
+    port?: number;
     username: string;
     password: string;
     allowInsecureSSL: boolean;
@@ -30,7 +34,9 @@ export interface AppConfig {
 
 interface StoredConfig {
   nas: {
+    protocol?: RemoteProtocol;
     url: string;
+    port?: number;
     username: string;
     encryptedPassword?: string;
     password?: string; // for backward compatibility before migration
@@ -48,7 +54,9 @@ interface StoredConfig {
 
 const DEFAULT_CONFIG: AppConfig = {
   nas: {
-    url: 'https://',
+    protocol: 'webdav',
+    url: '',
+    port: 5006,
     username: '',
     password: '',
     allowInsecureSSL: true,
@@ -159,6 +167,8 @@ export class ConfigStore {
           nas: {
             ...DEFAULT_CONFIG.nas,
             ...(parsed.nas || {}),
+            protocol: parsed.nas?.protocol || 'webdav',
+            port: parsed.nas?.port,
             password
           },
           sync: {
@@ -182,7 +192,9 @@ export class ConfigStore {
   public reset(): AppConfig {
     this.config = {
       nas: {
+        protocol: 'webdav',
         url: '',
+        port: 5006,
         username: '',
         password: '',
         allowInsecureSSL: true,
@@ -196,7 +208,9 @@ export class ConfigStore {
     };
     const storedData: StoredConfig = {
       nas: {
+        protocol: 'webdav',
         url: '',
+        port: 5006,
         username: '',
         encryptedPassword: '',
         allowInsecureSSL: true
@@ -256,6 +270,8 @@ export class ConfigStore {
       nas: {
         ...existing.nas,
         ...incomingNas,
+        protocol: incomingNas.protocol || existing.nas.protocol || 'webdav',
+        port: incomingNas.port !== undefined ? incomingNas.port : existing.nas.port,
         password: effectivePassword
       },
       sync: {
@@ -279,7 +295,9 @@ export class ConfigStore {
 
     const storedData: StoredConfig = {
       nas: {
+        protocol: this.config.nas.protocol || 'webdav',
         url: this.config.nas.url,
+        port: this.config.nas.port,
         username: this.config.nas.username,
         encryptedPassword,
         allowInsecureSSL: this.config.nas.allowInsecureSSL

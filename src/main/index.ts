@@ -5,7 +5,7 @@ import * as child_process from 'child_process';
 import { ConfigStore, SyncFolderPair } from './store';
 import { createSystemTray } from './tray';
 import { DailyLogger } from './logger';
-import { SynologyWebDAVClient } from '../sync/webdav-client';
+import { createRemoteClient, RemoteClient } from '../sync/remote-client';
 import { scanLocalDirectory } from '../sync/file-scanner';
 import { calculateSyncPlan } from '../sync/sync-engine';
 import { SyncScheduler } from '../sync/scheduler';
@@ -75,11 +75,12 @@ if (!gotTheLock) {
     isSyncing = true;
     abortSync = false;
     const config = store.get();
+    let client: RemoteClient | null = null;
 
     try {
       sendLog('=== 동기화 프로세스 시작 ===');
       if (!config.nas.url) {
-        sendLog('⚠️ 시놀로지 NAS 연결 설정이 완료되지 않았습니다.');
+        sendLog('⚠️ 원격 서버 연결 설정이 완료되지 않았습니다.');
         return;
       }
 
@@ -89,7 +90,7 @@ if (!gotTheLock) {
         return;
       }
 
-      const client = new SynologyWebDAVClient(config.nas);
+      client = createRemoteClient(config.nas);
       let grandTotalUploaded = 0;
       let grandTotalDeletedRemote = 0;
       let grandTotalDeletedLocal = 0;
@@ -101,7 +102,7 @@ if (!gotTheLock) {
           break;
         }
 
-        sendLog(`📂 [${folder.localPath} ➔ ${folder.remotePath}] 검사 시작 (NAS삭제: ${folder.deleteOnRemote ? 'ON' : 'OFF'}, 로컬삭제: ${folder.deleteOnLocal ? 'ON' : 'OFF'})`);
+        sendLog(`📂 [${folder.localPath} ➔ ${folder.remotePath}] 검사 시작 (원격삭제: ${folder.deleteOnRemote ? 'ON' : 'OFF'}, 로컬삭제: ${folder.deleteOnLocal ? 'ON' : 'OFF'})`);
 
         if (!fs.existsSync(folder.localPath)) {
           sendLog(`⚠️ 로컬 폴더가 존재하지 않아 건너뜁니다: ${folder.localPath}`);
@@ -125,7 +126,7 @@ if (!gotTheLock) {
         const skippedList = plan.filter(item => item.action === 'skip');
 
         grandTotalSkipped += skippedList.length;
-        sendLog(`📊 [${path.basename(folder.localPath)}] 업로드 ${uploadList.length}개, NAS삭제 ${deleteRemoteList.length}개, 로컬삭제 ${deleteLocalList.length}개, 스킵 ${skippedList.length}개`);
+        sendLog(`📊 [${path.basename(folder.localPath)}] 업로드 ${uploadList.length}개, 원격삭제 ${deleteRemoteList.length}개, 로컬삭제 ${deleteLocalList.length}개, 스킵 ${skippedList.length}개`);
 
         const totalOps = uploadList.length + deleteRemoteList.length + deleteLocalList.length;
         let completedOps = 0;
@@ -238,7 +239,7 @@ if (!gotTheLock) {
           });
         }
       } else {
-        sendLog(`✓ 전체 동기화 완료: ${grandTotalUploaded}개 업로드, NAS삭제 ${grandTotalDeletedRemote}개, 로컬삭제 ${grandTotalDeletedLocal}개, ${grandTotalSkipped}개 스킵`);
+        sendLog(`✓ 전체 동기화 완료: ${grandTotalUploaded}개 업로드, 원격삭제 ${grandTotalDeletedRemote}개, 로컬삭제 ${grandTotalDeletedLocal}개, ${grandTotalSkipped}개 스킵`);
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('sync-progress', {
             percent: 100,
@@ -261,6 +262,11 @@ if (!gotTheLock) {
         });
       }
     } finally {
+      if (client && client.close) {
+        try {
+          await client.close();
+        } catch {}
+      }
       isSyncing = false;
       abortSync = false;
     }
@@ -309,7 +315,7 @@ if (!gotTheLock) {
       minWidth: 700,
       minHeight: 650,
       show: !startHidden,
-      title: 'Synology Sync Manager',
+      title: 'koken Sync Manager',
       icon: iconPath,
       autoHideMenuBar: true,
       webPreferences: {
@@ -356,11 +362,22 @@ if (!gotTheLock) {
           'query',
           'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
           '/v',
-          'SynologySyncManager'
+          'kokenSyncManager'
         ], { stdio: 'ignore' });
         return true;
       } catch {
-        return false;
+        // Fallback check for legacy key
+        try {
+          child_process.execFileSync('reg.exe', [
+            'query',
+            'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+            '/v',
+            'SynologySyncManager'
+          ], { stdio: 'ignore' });
+          return true;
+        } catch {
+          return false;
+        }
       }
     }
     try {
@@ -381,15 +398,34 @@ if (!gotTheLock) {
             'add',
             'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
             '/v',
-            'SynologySyncManager',
+            'kokenSyncManager',
             '/t',
             'REG_SZ',
             '/d',
             `"${exePath}" --hidden`,
             '/f'
           ]);
+          // Clean up legacy key if exists
+          try {
+            child_process.execFileSync('reg.exe', [
+              'delete',
+              'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+              '/v',
+              'SynologySyncManager',
+              '/f'
+            ], { stdio: 'ignore' });
+          } catch {}
           sendLog(`🚀 Windows 시작 프로그램에 등록되었습니다. (경로: ${path.basename(exePath)})`);
         } else {
+          try {
+            child_process.execFileSync('reg.exe', [
+              'delete',
+              'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+              '/v',
+              'kokenSyncManager',
+              '/f'
+            ], { stdio: 'ignore' });
+          } catch {}
           try {
             child_process.execFileSync('reg.exe', [
               'delete',
@@ -459,7 +495,7 @@ if (!gotTheLock) {
       fileWatcher.stop();
       scheduler.setIntervalMinutes(30);
       updateAutoStartSetting(false);
-      sendLog('🔄 모든 설정(NAS 접속 정보, 동기화 폴더 목록, 동기화 상태)이 초기화되었습니다.');
+      sendLog('🔄 모든 설정(연결 정보, 동기화 폴더 목록, 동기화 상태)이 초기화되었습니다.');
       return clean;
     });
 
@@ -477,15 +513,28 @@ if (!gotTheLock) {
         ...nasCfg,
         password: nasCfg.password || store.get().nas.password
       };
-      sendLog(`NAS 연결 테스트 시도: ${effectiveNasCfg.url}`);
-      const client = new SynologyWebDAVClient(effectiveNasCfg);
-      const result = await client.testConnection();
-      if (result.success) {
-        sendLog('✓ NAS WebDAV 연결 성공!');
-      } else {
-        sendLog(`❌ NAS WebDAV 연결 실패: ${result.message}`);
+      const proto = (effectiveNasCfg.protocol || 'webdav').toUpperCase();
+      sendLog(`원격 서버(${proto}) 연결 테스트 시도: ${effectiveNasCfg.url}`);
+      let client: RemoteClient | null = null;
+      try {
+        client = createRemoteClient(effectiveNasCfg);
+        const result = await client.testConnection();
+        if (result.success) {
+          sendLog(`✓ 원격 서버(${proto}) 연결 성공!`);
+        } else {
+          sendLog(`❌ 원격 서버(${proto}) 연결 실패: ${result.message}`);
+        }
+        return result;
+      } catch (err: any) {
+        sendLog(`❌ 원격 서버(${proto}) 연결 오류: ${err.message || err}`);
+        return { success: false, message: err.message || String(err) };
+      } finally {
+        if (client && client.close) {
+          try {
+            await client.close();
+          } catch {}
+        }
       }
-      return result;
     });
 
     ipcMain.handle('start-sync', () => {

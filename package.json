@@ -1,8 +1,8 @@
 {
-  "name": "synology-sync-manager",
+  "name": "koken-sync-manager",
   "version": "1.0.0",
-  "description": "Desktop sync manager for Synology NAS using WebDAV",
-  "author": "Synology Sync Manager",
+  "description": "Desktop sync manager (koken Sync Manager)",
+  "author": "koken",
   "main": "dist/main/index.js",
   "scripts": {
     "build": "tsc && node -e \"require('fs').cpSync('src/renderer', 'dist/renderer', {recursive: true}); require('fs').cpSync('assets', 'dist/assets', {recursive: true})\"",
@@ -13,6 +13,7 @@
     "start": "chcp 65001 >nul && tsc && electron ."
   },
   "dependencies": {
+    "basic-ftp": "^6.2.1",
     "webdav": "^5.7.1"
   },
   "devDependencies": {
