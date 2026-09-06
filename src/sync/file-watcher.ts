@@ -3,7 +3,7 @@ import * as path from 'path';
 
 export interface FileWatcherOptions {
   debounceMs?: number;
-  onFileChange: (filePath?: string) => void;
+  onFileChange: (filePath?: string, baseDir?: string) => void;
 }
 
 const IGNORE_PATTERNS = [
@@ -22,18 +22,17 @@ function shouldIgnore(filename: string): boolean {
 }
 
 export class RealtimeFileWatcher {
-  private watcher: fs.FSWatcher | null = null;
+  private watchers: Map<string, fs.FSWatcher> = new Map();
   private debounceTimer: NodeJS.Timeout | null = null;
   private debounceMs: number;
-  private onFileChange: (filePath?: string) => void;
-  private currentDir: string | null = null;
+  private onFileChange: (filePath?: string, baseDir?: string) => void;
 
   constructor(options: FileWatcherOptions) {
     this.debounceMs = options.debounceMs ?? 3000;
     this.onFileChange = options.onFileChange;
   }
 
-  handleEvent(eventType: string, filename: string | null): void {
+  handleEvent(eventType: string, filename: string | null, baseDir?: string): void {
     if (!filename || shouldIgnore(filename)) {
       return;
     }
@@ -44,35 +43,49 @@ export class RealtimeFileWatcher {
 
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      this.onFileChange(filename);
+      this.onFileChange(filename, baseDir);
     }, this.debounceMs);
   }
 
-  start(directoryPath: string): void {
-    if (this.watcher && this.currentDir === directoryPath) {
-      return; // already watching same directory
+  start(directoryPaths: string | string[]): void {
+    const rawPaths = Array.isArray(directoryPaths) ? directoryPaths : [directoryPaths];
+    const targetPaths = rawPaths
+      .map(p => (p || '').trim())
+      .filter(p => p.length > 0 && fs.existsSync(p));
+
+    const newPathSet = new Set(targetPaths);
+
+    // Stop watchers no longer in targetPaths
+    for (const [watchedPath, watcher] of this.watchers.entries()) {
+      if (!newPathSet.has(watchedPath)) {
+        try {
+          watcher.close();
+        } catch {}
+        this.watchers.delete(watchedPath);
+      }
     }
-    this.stop();
 
-    if (!directoryPath || !fs.existsSync(directoryPath)) {
-      return;
-    }
+    // Start watchers for new paths
+    for (const dirPath of targetPaths) {
+      if (this.watchers.has(dirPath)) continue;
 
-    try {
-      this.currentDir = directoryPath;
-      this.watcher = fs.watch(
-        directoryPath,
-        { recursive: true },
-        (eventType, filename) => {
-          this.handleEvent(eventType, filename ? filename.toString() : null);
-        }
-      );
+      try {
+        const watcher = fs.watch(
+          dirPath,
+          { recursive: true },
+          (eventType, filename) => {
+            this.handleEvent(eventType, filename ? filename.toString() : null, dirPath);
+          }
+        );
 
-      this.watcher.on('error', (err) => {
-        console.error('File watcher error:', err);
-      });
-    } catch (err) {
-      console.error('Failed to start file watcher:', err);
+        watcher.on('error', (err) => {
+          console.error(`File watcher error on ${dirPath}:`, err);
+        });
+
+        this.watchers.set(dirPath, watcher);
+      } catch (err) {
+        console.error(`Failed to watch directory ${dirPath}:`, err);
+      }
     }
   }
 
@@ -81,16 +94,19 @@ export class RealtimeFileWatcher {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
-    if (this.watcher) {
+    for (const watcher of this.watchers.values()) {
       try {
-        this.watcher.close();
+        watcher.close();
       } catch {}
-      this.watcher = null;
     }
-    this.currentDir = null;
+    this.watchers.clear();
   }
 
   isWatching(): boolean {
-    return this.watcher !== null;
+    return this.watchers.size > 0;
+  }
+
+  getWatchedPaths(): string[] {
+    return Array.from(this.watchers.keys());
   }
 }

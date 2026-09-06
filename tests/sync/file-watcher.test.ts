@@ -26,17 +26,14 @@ describe('RealtimeFileWatcher', () => {
       onFileChange: callback
     });
 
-    // Simulate events
     watcher.handleEvent('change', 'doc1.txt');
     vi.advanceTimersByTime(500);
     watcher.handleEvent('change', 'doc2.txt');
     vi.advanceTimersByTime(500);
     watcher.handleEvent('change', 'doc3.txt');
 
-    // Callback shouldn't have fired yet due to continuous events resetting debounce
     expect(callback).not.toHaveBeenCalled();
 
-    // Advance past debounce
     vi.advanceTimersByTime(1000);
     expect(callback).toHaveBeenCalledTimes(1);
 
@@ -74,5 +71,22 @@ describe('RealtimeFileWatcher', () => {
 
     watcher.stop();
     expect(watcher.isWatching()).toBe(false);
+  });
+
+  it('should support watching multiple directories simultaneously', () => {
+    const callback = vi.fn();
+    const tempDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'watcher-test-2-'));
+    const watcher = new RealtimeFileWatcher({
+      debounceMs: 500,
+      onFileChange: callback
+    });
+
+    watcher.start([tempDir, tempDir2]);
+    expect(watcher.isWatching()).toBe(true);
+    expect(watcher.getWatchedPaths().length).toBe(2);
+
+    watcher.stop();
+    expect(watcher.isWatching()).toBe(false);
+    fs.rmSync(tempDir2, { recursive: true, force: true });
   });
 });
