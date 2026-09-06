@@ -18,6 +18,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const autoStartInput = document.getElementById('autoStart');
   const btnSaveConfig = document.getElementById('btnSaveConfig');
   const btnStartSync = document.getElementById('btnStartSync');
+  const btnCancelSync = document.getElementById('btnCancelSync');
+
+  // NAS Modal Elements
+  const nasModalOverlay = document.getElementById('nasModalOverlay');
+  const btnOpenNasModal = document.getElementById('btnOpenNasModal');
+  const btnCloseNasModal = document.getElementById('btnCloseNasModal');
+  const btnCancelNasModal = document.getElementById('btnCancelNasModal');
+  const btnSaveNasModal = document.getElementById('btnSaveNasModal');
 
   // Status & Progress Elements
   const globalStatusBadge = document.getElementById('globalStatusBadge');
@@ -248,6 +256,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
+  // Modal Event Listeners
+  function openNasModal() {
+    testResultMsg.textContent = '';
+    testResultMsg.className = 'test-result';
+    nasModalOverlay.style.display = 'flex';
+  }
+
+  function closeNasModal() {
+    nasModalOverlay.style.display = 'none';
+  }
+
+  btnOpenNasModal.addEventListener('click', openNasModal);
+  btnCloseNasModal.addEventListener('click', closeNasModal);
+  btnCancelNasModal.addEventListener('click', closeNasModal);
+
+  nasModalOverlay.addEventListener('click', (e) => {
+    if (e.target === nasModalOverlay) {
+      closeNasModal();
+    }
+  });
+
+  btnSaveNasModal.addEventListener('click', async () => {
+    try {
+      btnSaveNasModal.disabled = true;
+      const cfg = collectConfig();
+      await window.electronAPI.saveConfig(cfg);
+      setStatus('설정 저장됨', 'success');
+      setTimeout(() => setStatus('대기 중'), 3000);
+      closeNasModal();
+    } catch (err) {
+      appendLog(`[오류] NAS 설정 저장 실패: ${err.message}`);
+    } finally {
+      btnSaveNasModal.disabled = false;
+    }
+  });
+
   btnSaveConfig.addEventListener('click', async () => {
     try {
       btnSaveConfig.disabled = true;
@@ -265,7 +309,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Start Sync Now
   btnStartSync.addEventListener('click', async () => {
     try {
-      btnStartSync.disabled = true;
+      btnStartSync.style.display = 'none';
+      btnCancelSync.style.display = 'inline-flex';
+      btnCancelSync.disabled = false;
+      btnCancelSync.textContent = '⏹️ 동기화 취소';
       setStatus('동기화 중...', 'syncing');
       progressBarFill.style.width = '0%';
       progressPercent.textContent = '0%';
@@ -277,7 +324,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       appendLog(`[오류] 동기화 시작 실패: ${err.message}`);
       setStatus('오류 발생', 'error');
+      btnStartSync.style.display = 'inline-flex';
       btnStartSync.disabled = false;
+      btnCancelSync.style.display = 'none';
+    }
+  });
+
+  // Cancel Sync
+  btnCancelSync.addEventListener('click', async () => {
+    try {
+      btnCancelSync.disabled = true;
+      btnCancelSync.textContent = '취소 요청 중...';
+      await window.electronAPI.cancelSync();
+    } catch (err) {
+      appendLog(`[오류] 동기화 취소 요청 실패: ${err.message}`);
+      btnCancelSync.disabled = false;
     }
   });
 
@@ -293,8 +354,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (progress.status === 'completed') {
       setStatus('동기화 완료', 'success');
       progressCurrentFile.textContent = `완료됨 (${progress.completed}건 처리)`;
+      btnStartSync.style.display = 'inline-flex';
       btnStartSync.disabled = false;
+      btnCancelSync.style.display = 'none';
       setTimeout(() => setStatus('대기 중'), 5000);
+    } else if (progress.status === 'cancelled') {
+      setStatus('동기화 취소됨', 'error');
+      progressCurrentFile.textContent = '사용자에 의해 동기화가 취소되었습니다.';
+      btnStartSync.style.display = 'inline-flex';
+      btnStartSync.disabled = false;
+      btnCancelSync.style.display = 'none';
+      setTimeout(() => setStatus('대기 중'), 5000);
+    } else if (progress.status === 'error') {
+      setStatus('오류 발생', 'error');
+      btnStartSync.style.display = 'inline-flex';
+      btnStartSync.disabled = false;
+      btnCancelSync.style.display = 'none';
     }
   });
 

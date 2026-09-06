@@ -14,45 +14,17 @@
         <span class="icon">☁️</span>
         <h1>Synology Sync Manager</h1>
       </div>
-      <div class="status-badge" id="globalStatusBadge">대기 중</div>
+      <div class="header-right">
+        <button type="button" class="btn btn-secondary btn-sm" id="btnOpenNasModal">⚙️ 시놀로지 NAS 연결 설정</button>
+        <div class="status-badge" id="globalStatusBadge">대기 중</div>
+      </div>
     </header>
 
     <main class="content-grid">
-      <!-- 1. NAS Connection Card -->
-      <section class="card">
-        <div class="card-header">
-          <h2>🌐 1. 시놀로지 NAS 연결 설정</h2>
-        </div>
-        <div class="card-body form-group-grid">
-          <div class="form-group full-width">
-            <label for="nasUrl">WebDAV 서버 주소 (HTTPS 권장)</label>
-            <input type="text" id="nasUrl" placeholder="https://my-nas.synology.me:5006" />
-          </div>
-          <div class="form-group">
-            <label for="nasUsername">아이디</label>
-            <input type="text" id="nasUsername" placeholder="username" />
-          </div>
-          <div class="form-group">
-            <label for="nasPassword">비밀번호</label>
-            <input type="password" id="nasPassword" placeholder="••••••••" />
-          </div>
-          <div class="form-group full-width checkbox-group">
-            <label>
-              <input type="checkbox" id="allowInsecureSSL" checked />
-              자체 서명(사설) SSL 인증서 허용 (SSL 검증 오류 방지)
-            </label>
-          </div>
-          <div class="card-actions full-width">
-            <button type="button" class="btn btn-secondary" id="btnTestConnection">연결 테스트</button>
-            <span class="test-result" id="testResultMsg"></span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 2. Folder Mapping Card (Multi-Folder Support) -->
+      <!-- 1. Folder Mapping Card (Multi-Folder Support) -->
       <section class="card">
         <div class="card-header folders-card-header">
-          <h2>📁 2. 동기화 폴더 설정 (다중 폴더 지원)</h2>
+          <h2>📁 1. 동기화 폴더 설정 (다중 폴더 지원)</h2>
           <button type="button" class="btn btn-secondary btn-sm" id="btnAddFolder">➕ 새 폴더 추가</button>
         </div>
         <div class="card-body">
@@ -63,10 +35,10 @@
         </div>
       </section>
 
-      <!-- 3. Schedule & Actions Card -->
+      <!-- 2. Schedule & Actions Card -->
       <section class="card">
         <div class="card-header">
-          <h2>⏱️ 3. 주기 및 동기화 제어</h2>
+          <h2>⏱️ 2. 주기 및 동기화 제어</h2>
         </div>
         <div class="card-body">
           <div class="schedule-controls">
@@ -99,9 +71,14 @@
           </div>
 
           <div class="sync-actions-box">
-            <button type="button" class="btn btn-success btn-large" id="btnStartSync">
-              ▶ 지금 즉시 동기화 실행
-            </button>
+            <div class="sync-buttons-group">
+              <button type="button" class="btn btn-success btn-large" id="btnStartSync">
+                ▶ 지금 즉시 동기화 실행
+              </button>
+              <button type="button" class="btn btn-danger btn-large" id="btnCancelSync" style="display: none;">
+                ⏹️ 동기화 취소
+              </button>
+            </div>
             
             <div class="progress-section" id="progressSection">
               <div class="progress-info">
@@ -116,10 +93,10 @@
         </div>
       </section>
 
-      <!-- 4. Real-time Activity Logs Card -->
+      <!-- 3. Real-time Activity Logs Card -->
       <section class="card full-width-card">
         <div class="card-header logs-header">
-          <h2>📜 4. 활동 로그</h2>
+          <h2>📜 3. 활동 로그</h2>
           <div class="logs-header-actions">
             <button type="button" class="btn-text" id="btnOpenLogsFolder">📂 로그 폴더 열기</button>
             <button type="button" class="btn-text" id="btnClearLogs">로그 지우기</button>
@@ -132,6 +109,44 @@
         </div>
       </section>
     </main>
+
+    <!-- Synology NAS Connection Modal -->
+    <div class="modal-overlay" id="nasModalOverlay" style="display: none;">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h2>🌐 시놀로지 NAS 연결 설정</h2>
+          <button type="button" class="modal-close-btn" id="btnCloseNasModal" aria-label="닫기">&times;</button>
+        </div>
+        <div class="modal-body form-group-grid">
+          <div class="form-group full-width">
+            <label for="nasUrl">WebDAV 서버 주소 (HTTPS 권장)</label>
+            <input type="text" id="nasUrl" placeholder="https://my-nas.synology.me:5006" />
+          </div>
+          <div class="form-group">
+            <label for="nasUsername">아이디</label>
+            <input type="text" id="nasUsername" placeholder="username" />
+          </div>
+          <div class="form-group">
+            <label for="nasPassword">비밀번호</label>
+            <input type="password" id="nasPassword" placeholder="••••••••" />
+          </div>
+          <div class="form-group full-width checkbox-group">
+            <label>
+              <input type="checkbox" id="allowInsecureSSL" checked />
+              자체 서명(사설) SSL 인증서 허용 (SSL 검증 오류 방지)
+            </label>
+          </div>
+          <div class="card-actions full-width" style="margin-top: 4px;">
+            <button type="button" class="btn btn-secondary" id="btnTestConnection">연결 테스트</button>
+            <span class="test-result" id="testResultMsg"></span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btnCancelNasModal">취소</button>
+          <button type="button" class="btn btn-primary" id="btnSaveNasModal">저장 및 적용</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

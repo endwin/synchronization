@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectLocalFolder: () => ipcRenderer.invoke('select-local-folder'),
   testConnection: (nasConfig: any) => ipcRenderer.invoke('test-connection', nasConfig),
   startSync: () => ipcRenderer.invoke('start-sync'),
+  cancelSync: () => ipcRenderer.invoke('cancel-sync'),
   openLogsFolder: () => ipcRenderer.invoke('open-logs-folder'),
   onSyncProgress: (callback: (progress: any) => void) => {
     ipcRenderer.on('sync-progress', (_event, value) => callback(value));

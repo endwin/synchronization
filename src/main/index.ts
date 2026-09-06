@@ -46,6 +46,7 @@ if (!gotTheLock) {
   let mainWindow: BrowserWindow | null = null;
   let tray: any = null;
   let isSyncing = false;
+  let abortSync = false;
 
   const configPath = path.join(app.getPath('userData'), 'config.json');
   const store = new ConfigStore(configPath);
@@ -72,6 +73,7 @@ if (!gotTheLock) {
       return;
     }
     isSyncing = true;
+    abortSync = false;
     const config = store.get();
 
     try {
@@ -94,6 +96,11 @@ if (!gotTheLock) {
       let grandTotalSkipped = 0;
 
       for (const folder of folders) {
+        if (abortSync) {
+          sendLog('🛑 사용자에 의해 동기화가 취소되었습니다.');
+          break;
+        }
+
         sendLog(`📂 [${folder.localPath} ➔ ${folder.remotePath}] 검사 시작 (NAS삭제: ${folder.deleteOnRemote ? 'ON' : 'OFF'}, 로컬삭제: ${folder.deleteOnLocal ? 'ON' : 'OFF'})`);
 
         if (!fs.existsSync(folder.localPath)) {
@@ -125,6 +132,11 @@ if (!gotTheLock) {
 
         // 1. Upload new / modified files
         for (const item of uploadList) {
+          if (abortSync) {
+            sendLog('🛑 동기화 업로드 작업이 중단되었습니다.');
+            break;
+          }
+
           const fullLocalPath = path.join(folder.localPath, item.relativePath);
           const fullRemotePath = `${folder.remotePath}/${item.relativePath}`.replace(/\/+/g, '/');
           const remoteDir = path.dirname(fullRemotePath).replace(/\\/g, '/');
@@ -145,8 +157,15 @@ if (!gotTheLock) {
           }
         }
 
+        if (abortSync) break;
+
         // 2. Delete remote files if mirror deletion enabled
         for (const item of deleteRemoteList) {
+          if (abortSync) {
+            sendLog('🛑 동기화 원격 삭제 작업이 중단되었습니다.');
+            break;
+          }
+
           const fullRemotePath = `${folder.remotePath}/${item.relativePath}`.replace(/\/+/g, '/');
           sendLog(`🗑️ 원격 삭제 [로컬에서 삭제됨]: ${item.relativePath}`);
           try {
@@ -167,8 +186,15 @@ if (!gotTheLock) {
           }
         }
 
+        if (abortSync) break;
+
         // 3. Delete local files if deleted in backup folder (deleteOnLocal)
         for (const item of deleteLocalList) {
+          if (abortSync) {
+            sendLog('🛑 동기화 로컬 삭제 작업이 중단되었습니다.');
+            break;
+          }
+
           const fullLocalPath = path.join(folder.localPath, item.relativePath);
           sendLog(`🗑️ 로컬 삭제 [백업폴더에서 삭제됨]: ${item.relativePath}`);
           try {
@@ -195,23 +221,48 @@ if (!gotTheLock) {
         // 4. Update sync state after operations
         const updatedLocalFiles = await scanLocalDirectory(folder.localPath);
         syncStateManager.updateFolderState(folder.id, updatedLocalFiles);
+
+        if (abortSync) break;
       }
 
       const totalDeleted = grandTotalDeletedRemote + grandTotalDeletedLocal;
-      sendLog(`✓ 전체 동기화 완료: ${grandTotalUploaded}개 업로드, NAS삭제 ${grandTotalDeletedRemote}개, 로컬삭제 ${grandTotalDeletedLocal}개, ${grandTotalSkipped}개 스킵`);
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('sync-progress', {
-          percent: 100,
-          currentFile: '',
-          completed: grandTotalUploaded + totalDeleted,
-          total: grandTotalUploaded + totalDeleted,
-          status: 'completed'
-        });
+      if (abortSync) {
+        sendLog('🛑 동기화가 사용자에 의해 취소되었습니다.');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('sync-progress', {
+            percent: 0,
+            currentFile: '',
+            completed: 0,
+            total: 0,
+            status: 'cancelled'
+          });
+        }
+      } else {
+        sendLog(`✓ 전체 동기화 완료: ${grandTotalUploaded}개 업로드, NAS삭제 ${grandTotalDeletedRemote}개, 로컬삭제 ${grandTotalDeletedLocal}개, ${grandTotalSkipped}개 스킵`);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('sync-progress', {
+            percent: 100,
+            currentFile: '',
+            completed: grandTotalUploaded + totalDeleted,
+            total: grandTotalUploaded + totalDeleted,
+            status: 'completed'
+          });
+        }
       }
     } catch (err: any) {
       sendLog(`❌ 동기화 실패: ${err.message || err}`);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('sync-progress', {
+          percent: 0,
+          currentFile: '',
+          completed: 0,
+          total: 0,
+          status: 'error'
+        });
+      }
     } finally {
       isSyncing = false;
+      abortSync = false;
     }
   }
 
@@ -360,6 +411,15 @@ if (!gotTheLock) {
     ipcMain.handle('start-sync', () => {
       executeSync();
       return true;
+    });
+
+    ipcMain.handle('cancel-sync', () => {
+      if (isSyncing) {
+        abortSync = true;
+        sendLog('⏹️ 동기화 취소 요청을 접수했습니다. 진행 중인 작업을 안전하게 중단합니다...');
+        return true;
+      }
+      return false;
     });
 
     ipcMain.handle('open-logs-folder', async () => {
