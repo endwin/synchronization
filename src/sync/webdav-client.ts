@@ -92,6 +92,21 @@ export class SynologyWebDAVClient {
     const fileMap = new Map<string, RemoteFileStat>();
     const basePath = remoteBasePath.normalize('NFC').replace(/\\/g, '/').replace(/\/+$/, '');
 
+    const REMOTE_IGNORE_PATTERNS = [
+      /^\.git$/i,
+      /^node_modules$/i,
+      /^logs$/i,
+      /\.log$/i,
+      /\.tmp$/i,
+      /^~\$/,
+      /^Thumbs\.db$/i,
+      /^\.DS_Store$/i
+    ];
+
+    function shouldIgnoreRemote(name: string): boolean {
+      return REMOTE_IGNORE_PATTERNS.some(p => p.test(name));
+    }
+
     async function walk(targetPath: string) {
       let items: FileStat[] = [];
       try {
@@ -102,6 +117,9 @@ export class SynologyWebDAVClient {
       }
 
       for (const item of items) {
+        if (shouldIgnoreRemote(item.basename)) {
+          continue;
+        }
         if (item.type === 'directory') {
           await walk(item.filename);
         } else {

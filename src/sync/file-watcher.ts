@@ -7,8 +7,10 @@ export interface FileWatcherOptions {
 }
 
 const IGNORE_PATTERNS = [
-  /^\.git/i,
-  /^node_modules/i,
+  /(?:^|[\\/])\.git(?:[\\/]|$)/i,
+  /(?:^|[\\/])node_modules(?:[\\/]|$)/i,
+  /(?:^|[\\/])logs(?:[\\/]|$)/i,
+  /\.log$/i,
   /\.tmp$/i,
   /^~\$/,
   /Thumbs\.db$/i,

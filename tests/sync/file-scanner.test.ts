@@ -28,15 +28,20 @@ describe('scanLocalDirectory', () => {
     expect(result.get('sub/child.txt')?.size).toBe(6);
   });
 
-  it('should ignore temp files and .git folder', async () => {
+  it('should ignore temp files, .git folder, logs directory, and .log files', async () => {
     fs.writeFileSync(path.join(tempDir, 'valid.txt'), 'data');
     fs.writeFileSync(path.join(tempDir, 'temp.tmp'), 'temp');
     fs.writeFileSync(path.join(tempDir, '~$lock.docx'), 'lock');
+    fs.writeFileSync(path.join(tempDir, 'app.log'), 'log data');
     fs.mkdirSync(path.join(tempDir, '.git'));
     fs.writeFileSync(path.join(tempDir, '.git', 'HEAD'), 'ref');
+    fs.mkdirSync(path.join(tempDir, 'logs'));
+    fs.writeFileSync(path.join(tempDir, 'logs', '2026-09-06.log'), 'daily log');
 
     const result = await scanLocalDirectory(tempDir);
     expect(result.size).toBe(1);
     expect(result.has('valid.txt')).toBe(true);
+    expect(result.has('app.log')).toBe(false);
+    expect(result.has('logs/2026-09-06.log')).toBe(false);
   });
 });

@@ -40,7 +40,7 @@ describe('RealtimeFileWatcher', () => {
     watcher.stop();
   });
 
-  it('should ignore temp files and .git changes', () => {
+  it('should ignore temp files, logs directory, and .git changes', () => {
     const callback = vi.fn();
     const watcher = new RealtimeFileWatcher({
       debounceMs: 500,
@@ -51,6 +51,9 @@ describe('RealtimeFileWatcher', () => {
     watcher.handleEvent('change', '~$word.docx');
     watcher.handleEvent('change', '.git/index');
     watcher.handleEvent('change', 'Thumbs.db');
+    watcher.handleEvent('change', 'logs/2026-09-06.log');
+    watcher.handleEvent('change', 'logs\\2026-09-06.log');
+    watcher.handleEvent('change', 'app.log');
 
     vi.advanceTimersByTime(1000);
     expect(callback).not.toHaveBeenCalled();

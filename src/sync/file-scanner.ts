@@ -10,6 +10,8 @@ export interface ScannedFile {
 const IGNORE_PATTERNS = [
   /^\.git$/i,
   /^node_modules$/i,
+  /^logs$/i,
+  /\.log$/i,
   /\.tmp$/i,
   /^~\$/,
   /^Thumbs\.db$/i,
