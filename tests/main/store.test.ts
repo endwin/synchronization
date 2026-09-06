@@ -117,4 +117,21 @@ describe('ConfigStore', () => {
     });
     expect(store.get().nas.password).toBe('initialPassword');
   });
+
+  it('should persist and load autoStart startup setting', () => {
+    const store = new ConfigStore(tempConfigFile);
+    expect(store.get().sync.autoStart).toBe(false);
+
+    store.save({
+      sync: {
+        folders: [],
+        intervalMinutes: 30,
+        realtimeSync: true,
+        autoStart: true
+      }
+    });
+
+    const reloaded = new ConfigStore(tempConfigFile);
+    expect(reloaded.get().sync.autoStart).toBe(true);
+  });
 });

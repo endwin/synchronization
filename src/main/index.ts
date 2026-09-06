@@ -249,11 +249,14 @@ if (!gotTheLock) {
     ];
     const iconPath = iconCandidates.find(p => fs.existsSync(p)) || iconCandidates[0];
 
+    const startHidden = process.argv.includes('--hidden');
+
     mainWindow = new BrowserWindow({
       width: 820,
       height: 840,
       minWidth: 700,
       minHeight: 650,
+      show: !startHidden,
       title: 'Synology Sync Manager',
       icon: iconPath,
       webPreferences: {
@@ -282,6 +285,18 @@ if (!gotTheLock) {
     updateWatcherState();
   }
 
+  function updateAutoStartSetting(enable: boolean) {
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: enable,
+        openAsHidden: true,
+        args: ['--hidden']
+      });
+    } catch (err) {
+      console.error('Failed to set login item settings:', err);
+    }
+  }
+
   app.on('second-instance', () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -293,12 +308,26 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     store.reload();
 
-    ipcMain.handle('get-config', () => store.get());
+    const initialConfig = store.get();
+    if (initialConfig.sync.autoStart !== undefined) {
+      updateAutoStartSetting(Boolean(initialConfig.sync.autoStart));
+    }
+
+    ipcMain.handle('get-config', () => {
+      const current = store.get();
+      try {
+        current.sync.autoStart = app.getLoginItemSettings().openAtLogin;
+      } catch {}
+      return current;
+    });
 
     ipcMain.handle('save-config', (_event, cfg) => {
       store.save(cfg);
       scheduler.setIntervalMinutes(cfg.sync?.intervalMinutes ?? 30);
       updateWatcherState();
+      if (cfg.sync?.autoStart !== undefined) {
+        updateAutoStartSetting(Boolean(cfg.sync.autoStart));
+      }
       sendLog('설정이 저장되었습니다.');
       return true;
     });

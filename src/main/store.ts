@@ -23,6 +23,7 @@ export interface AppConfig {
     folders: SyncFolderPair[];
     intervalMinutes: number;
     realtimeSync: boolean;
+    autoStart?: boolean;
     localPath?: string; // legacy support
   };
 }
@@ -41,6 +42,7 @@ interface StoredConfig {
     localPath?: string;
     intervalMinutes: number;
     realtimeSync: boolean;
+    autoStart?: boolean;
   };
 }
 
@@ -55,6 +57,7 @@ const DEFAULT_CONFIG: AppConfig = {
     folders: [],
     intervalMinutes: 30,
     realtimeSync: false,
+    autoStart: false,
   }
 };
 
@@ -162,7 +165,8 @@ export class ConfigStore {
             ...DEFAULT_CONFIG.sync,
             ...(parsed.sync || {}),
             folders,
-            realtimeSync: parsed.sync?.realtimeSync ?? DEFAULT_CONFIG.sync.realtimeSync
+            realtimeSync: parsed.sync?.realtimeSync ?? DEFAULT_CONFIG.sync.realtimeSync,
+            autoStart: parsed.sync?.autoStart ?? DEFAULT_CONFIG.sync.autoStart
           }
         };
       }
@@ -249,7 +253,8 @@ export class ConfigStore {
       sync: {
         folders: this.config.sync.folders,
         intervalMinutes: this.config.sync.intervalMinutes,
-        realtimeSync: this.config.sync.realtimeSync
+        realtimeSync: this.config.sync.realtimeSync,
+        autoStart: this.config.sync.autoStart
       }
     };
 
