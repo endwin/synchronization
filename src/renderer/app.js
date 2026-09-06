@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function createFolderRow(folderData = {}) {
     const id = folderData.id || `folder_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const localPath = folderData.localPath || '';
-    const remotePath = folderData.remotePath || '/home/Backup';
+    const remotePath = folderData.remotePath || '/Backup';
     const deleteOnRemote = Boolean(folderData.deleteOnRemote);
     const deleteOnLocal = Boolean(folderData.deleteOnLocal);
     const enabled = folderData.enabled !== false;
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="form-group">
           <label>NAS 원격 저장 폴더</label>
-          <input type="text" class="folder-remote-path" value="${remotePath}" placeholder="/home/Backup" />
+          <input type="text" class="folder-remote-path" value="${remotePath}" placeholder="/Backup" />
         </div>
         <div class="form-group checkbox-group delete-remote-box">
           <label>
@@ -96,11 +96,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Browse button event
     const btnBrowse = row.querySelector('.btn-browse-folder');
     const localInput = row.querySelector('.folder-local-path');
+    const remoteInput = row.querySelector('.folder-remote-path');
+
     btnBrowse.addEventListener('click', async () => {
       try {
         const selected = await window.electronAPI.selectLocalFolder();
         if (selected) {
+          const prevLocal = localInput.value.trim();
           localInput.value = selected;
+
+          // Automatically populate NAS remote subfolder name based on local folder name
+          const newFolderName = selected.replace(/[/\\]+$/, '').split(/[/\\]/).pop();
+          if (newFolderName) {
+            const prevFolderName = prevLocal ? prevLocal.replace(/[/\\]+$/, '').split(/[/\\]/).pop() : '';
+            let currentRemote = remoteInput.value.trim();
+
+            if (!currentRemote) {
+              currentRemote = '/Backup';
+            }
+
+            if (prevFolderName && currentRemote.endsWith('/' + prevFolderName)) {
+              remoteInput.value = `${currentRemote.slice(0, -(prevFolderName.length + 1))}/${newFolderName}`;
+            } else if (!prevFolderName && (currentRemote === '/Backup' || currentRemote === '/home/Backup' || currentRemote === '/')) {
+              const base = currentRemote === '/' ? '' : currentRemote.replace(/\/+$/, '');
+              remoteInput.value = `${base}/${newFolderName}`;
+            } else if (!currentRemote.endsWith('/' + newFolderName)) {
+              remoteInput.value = `${currentRemote.replace(/\/+$/, '')}/${newFolderName}`;
+            }
+          }
         }
       } catch (err) {
         appendLog(`[오류] 폴더 선택 실패: ${err.message}`);

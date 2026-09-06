@@ -49,7 +49,8 @@ if (!gotTheLock) {
 
   const configPath = path.join(app.getPath('userData'), 'config.json');
   const store = new ConfigStore(configPath);
-  const logsDir = path.join(app.getPath('userData'), 'logs');
+  const projectRoot = app.getAppPath() || process.cwd();
+  const logsDir = path.join(projectRoot, 'logs');
   const dailyLogger = new DailyLogger(logsDir);
   const statePath = path.join(app.getPath('userData'), 'sync-state.json');
   const syncStateManager = new SyncStateManager(statePath);
